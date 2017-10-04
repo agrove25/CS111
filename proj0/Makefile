@@ -13,7 +13,7 @@ clean:
 	rm -f lab0 *.tar.gz *.txt
 
 dist: default
-	tar -czvf lab0-304785991.tar.gz Makefile lab0.c backtrace.png breakpoint.png
+	tar -czvf lab0-304785991.tar.gz Makefile lab0.c backtrace.png breakpoint.png README
 
 runTests:
 	echo "Hello World" > sampleInput.txt;

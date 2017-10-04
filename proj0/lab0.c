@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
+#include <string.h>
 
 bool triggerSeg = false;
 
@@ -25,12 +26,8 @@ void copy() {
 }
 
 void diagnoseError(int err) {
-	switch (err) {
-		case 2: fprintf(stderr, "(Invalid file name)"); break;
-		case 21: fprintf(stderr, "(File is a directory)"); break;
-		case 30: fprintf(stderr, "(File is read-only)"); break;
-		default: fprintf(stderr, "(Error Number: %i)", err); break;
-	}
+  fprintf(stderr, "     Reason: ");
+  fprintf(stderr, strerror(err));
 }
 
 void sighandler() {
