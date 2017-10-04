@@ -1,3 +1,7 @@
+# NAME: Andrew Grove
+# EMAIL: koeswantoandrew@gmail.com
+# ID: 304785991
+
 default:
 	gcc -o lab0 -g lab0.c
 
