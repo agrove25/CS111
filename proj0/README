@@ -1,0 +1,45 @@
+Name: Andrew Grove
+Email: koeswantoandrew@gmail.com
+ID: 304785991
+
+lab0.c:
+  This file contains the source code for this assignment. In its base form, it uses read
+  and write to copy whatever is in standard input to standard output, character by character. 
+  It allows for four options, courtesy of getopt. These options are as follows:
+
+  --input=filename :: which supplies a file location that will become the new stdin
+  --output=filename :: which supplies a file location that will become the new stdout
+  --segfault :: which dereferences a nullptr, thereby creating a segmentation fault
+  --catch :: which creates a signal handler for segmentation faults
+
+  It also supplies 5 different exit codes, as follows:
+
+  0 :: everything seemed to run correctly
+  1 :: invalid option
+  2 :: invalid input
+  3 :: invalid output
+  4 :: caught a segmentation fault
+
+Makefile:
+  This file allows us to more easily create an executable to run. It supports four options:
+
+  make :: default make, which creates the lab0 executable that is able to be debugged
+  make check :: the above, but also runs test cases to ensure the code works properly (as follows):
+
+    1. ensures the non-error cases works, and that the data is copied properly (exit: 0)
+    2. ensures that the program handles invalid inputs (exit: 2)
+    3. ensures that the program handles invalid outputs (exit: 3)
+    4. ensures that the program handles segmentation faults properly when given --catch (exit: 4)
+    5. ensures that the program handles invalid arguments (exit: 1)
+
+    it will also print the error messages corresponding to what went wrong.
+
+  make clean :: erases all non-integral files, i.e. everything besides what's in the tar, untarred.
+  make dist :: tars the files necessary to submit, i.e. the README, source code, and two pngs.
+
+backtrace.png:
+  shows the backtrace when encountering a segmentation fault, and that it resulted due to the
+  derefrencing of a variable called nullptr (which, is a nullptr, as we'll find out).
+
+breakpoint.png:
+  shows that the variable nullptr, does in fact, point to address 0x0, making it a nullptr.

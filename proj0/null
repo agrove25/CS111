@@ -1,0 +1,7 @@
+./lab0: invalid option -- 'n'
+Usage : lab0 [OPTION] = [ARGUMENT]
+OPTION: 
+	--input=filename, 
+	--output=filename, 
+	--segfault, 
+	--catch 
