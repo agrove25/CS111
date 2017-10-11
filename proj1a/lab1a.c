@@ -121,7 +121,7 @@ void process_shutdown() {
 
   while (polls[1].revents & POLLIN) {
     if ((polls[0].revents & (POLLHUP | POLLERR)) ||
-        (polls[0].revents & (POLLHUP | POLLERR))) {
+        (polls[1].revents & (POLLHUP | POLLERR))) {
       break;
     }
     if (!read_and_write(fromShell[0], 1)) {
@@ -135,9 +135,14 @@ void process_shutdown() {
   close(fromShell[0]);
   close(fromShell[1]);
 
-  waitpid(process_id, &status, 0);
-  fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d",
-         WTERMSIG(process_id), WEXITSTATUS(process_id));
+  pid_t control = waitpid(process_id, &status, WNOHANG);
+  if (control == 0) {
+    fprintf(stderr, "Waiting for child.");
+  }
+  else {
+    fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d",
+           (status & 0x007f), (status & 0xff00) >> 8);
+  }
 }
 
 void signal_handler() {
@@ -251,7 +256,7 @@ void shellStart() {
         }
       }
       if ((polls[0].revents & (POLLHUP | POLLERR)) ||
-          (polls[0].revents & (POLLHUP | POLLERR))) {
+          (polls[1].revents & (POLLHUP | POLLERR))) {
         exit(0);
       }
     }

@@ -3,7 +3,7 @@
 # ID: 304785991
 
 default:
-	gcc -o lab1a -g lab1a.c
+	gcc -o lab1a -g lab1a.c 2> "/dev/null"
 
 clean:
 	rm -f lab1a *.tar.gz
