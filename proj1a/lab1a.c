@@ -130,6 +130,8 @@ void process_shutdown() {
     }
   }
 
+  kill(process_id, SIGINT);
+
   close(toShell[0]);
   close(toShell[1]);
   close(fromShell[0]);
