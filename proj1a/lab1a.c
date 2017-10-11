@@ -39,7 +39,8 @@ bool read_and_write(int in_fd, int out_fd) {
     handleError("read_and_write (read)", errno);
   }
 
-  for (int i = 0; i < bytes; i++) {
+  int i;
+  for (i = 0; i < bytes; i++) {
     if (buffer[i] == 4) {
       return false;
     }
@@ -70,7 +71,8 @@ bool shell_read_and_write (int in_fd, int out_fd) {
     handleError("shell_read_and_write (read)", errno);
   }
 
-  for (int i = 0; i < bytes; i++) {
+  int i;
+  for (i = 0; i < bytes; i++) {
     if (buffer[i] == 3) {
       if (write(1, "^c", 2) < 0) {
         handleError("shell_read_and_write (write, ^c)", errno);
