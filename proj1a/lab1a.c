@@ -141,7 +141,7 @@ void process_shutdown() {
 }
 
 void signal_handler() {
-  fprintf(stderr, "encountered the SIGPIPE error");
+  fprintf(stderr, "encountered the SIGPIPE error\n");
   exit(0);
 }
 
@@ -248,7 +248,6 @@ void shellStart() {
       if (polls[1].revents & POLLIN) {
         if (!read_and_write(fromShell[0], 1)) {
           close(fromShell[0]);
-          exit(0);
         }
       }
       if ((polls[0].revents & (POLLHUP | POLLERR)) ||
