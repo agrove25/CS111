@@ -140,6 +140,11 @@ void process_shutdown() {
          (status & 0x007f), (status & 0xff00));
 }
 
+void signal_handler() {
+  fprintf(stderr, "encountered the SIGPIPE error");
+  exit(0);
+}
+
 // sets the global var original and changes terminal attributes
 void adjust_terminal() {
   int result;
@@ -324,6 +329,7 @@ int main(int argc, char *argv[]) {
   adjust_terminal();
 
   if (activeShell) {
+    signal(SIGPIPE, signal_handler);
     activateShell();
   }
 
