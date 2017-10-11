@@ -1,0 +1,29 @@
+NAME: Andrew Grove
+EMAIL: koeswantoandrew@gmail.com
+ID: 304785991
+
+lab1a.c:
+  The source code for this lab. It creates an executable that when run,
+  puts the keyboard into character-at-a-time, no-echo mode. Basically,
+  what this means is it deactivates everything and is unable to backspace,
+  and all input will appear on the screen (include newlines). To exit out of
+  this mode, use the command ^d.
+
+  This program also takes an option --shell. This creates two processes
+  where the child process takes the form of a basic bash shell. In doing so,
+  we are able to send commands into that child process and get the output
+  through the usage of pipes.
+
+  It has two different return codes:
+    0: Everything ran properly, and the program was killed through ^d
+    1: Something went wrong. An error message should pop up giving more details.
+
+Makefile:
+  This file allows us to more easily create an executable to run.
+  It supports three options:
+
+    make :: default make, which creates the lab1a executable
+    make clean :: erases all non-integral files, i.e. everything besides
+                  what's in the tar, untarred.
+    make dist :: creates the tar file to be submitted, containing three files:
+                 the README, the source code, and the Makefile
