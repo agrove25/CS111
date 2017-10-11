@@ -137,14 +137,11 @@ void process_shutdown() {
   close(fromShell[0]);
   close(fromShell[1]);
 
-  pid_t control = waitpid(process_id, &status, WNOHANG);
-  if (control == 0) {
-    fprintf(stderr, "Waiting for child.");
+  while (waitpid(process_id, &status, WNOHANG) == 0) {
+    fprintf(stderr, "Waiting for Child\n");
   }
-  else {
-    fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d",
-           (status & 0x007f), (status & 0xff00) >> 8);
-  }
+  fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d",
+         (status & 0x007f), (status & 0xff00) >> 8);
 }
 
 void signal_handler() {
