@@ -137,7 +137,7 @@ void process_shutdown() {
 
   waitpid(process_id, &status, 0);
   fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d",
-         (status & 0x007f), (status & 0xff00));
+         WTERMSIG(process_id), WEXITSTATUS(process_id));
 }
 
 void signal_handler() {
