@@ -69,42 +69,6 @@ bool shell_read_and_write (int in_fd, int out_fd) {
   if (bytes < 0) {
     handleError("shell_read_and_write (read)", errno);
   }
-  int i = 0;
-  while (i < bytes) {
-    if (buffer[i] == 3) {
-      if (write(1, "^c", 2) < 0) {
-        handleError("shell_read_and_write (write, ^c)", errno);
-      }
-
-      kill(process_id, SIGINT);
-      i++;
-      continue;
-    }
-    if (buffer[i] == 4) {
-      return false;
-    }
-    else if (buffer[i] == '\r' || buffer[i] == '\n') {
-      char output[2] = {'\r', '\n'};
-      if (write(1, output, 2) < 0) {
-        handleError("shell_read_and_write (write, \\r\\n)", errno);
-      }
-      if (write(out_fd, output + 1, 1) < 0) {
-        handleError("shell_read_and_write (out_fd write, \\n)", errno);
-      }
-
-      i++;
-      continue;
-    }
-
-    if (write (1, buffer + i, 1) < 0) {
-      handleError("shell_read_and_write (write)", errno);
-    }
-    if (write (out_fd, buffer + i, 1) < 0) {
-      handleError("shell_read_and_write (out_fd write)", errno);
-    }
-
-    i++;
-  }
 
   for (int i = 0; i < bytes; i++) {
     if (buffer[i] == 3) {
