@@ -1,0 +1,22 @@
+SENT 1 bytes: l
+RECEIVED 1 bytes: l
+SENT 1 bytes: s
+RECEIVED 1 bytes: s
+SENT 1 bytes: 
+RECEIVED 2 bytes: 
+
+RECEIVED 18 bytes: client
+client.c
+
+RECEIVED 46 bytes: example
+log.txt
+Makefile
+server
+server.c
+
+SENT 46 bytes: xample
+log.txt
+Makefile
+server
+server.c
+

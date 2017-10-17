@@ -108,7 +108,6 @@ bool shell_read_and_write (int in_fd, int out_fd) {
   return true;
 }
 
-
 // helper function that is called at the end by atexit in adjust
 void restore_terminal() {
   if (tcsetattr(STDIN_FILENO, TCSANOW, &original) < 0) {
