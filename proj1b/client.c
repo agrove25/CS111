@@ -15,11 +15,14 @@
 #include <signal.h>
 #include <poll.h>
 
+// logging
 #include <sys/stat.h>
 #include <fcntl.h>
 
+// cryption
 #include <mcrypt.h>
 
+// network
 #include <sys/socket.h>
 #include <arpa/inet.h> //inet_addr
 
@@ -31,14 +34,14 @@ struct termios original;
 char buffer[256];
 struct pollfd polls[2];
 
-MCRYPT td;
+MCRYPT encrypt_fd, decrypt_fd;
 
 // Client-Server Variables
 int serv_fd;
 struct sockaddr_in server;
 
 // Function Definitions
-bool read_and_write(int in_fd, int out_fd, char buffer[]);
+bool read_and_write(int in_fd, int out_fd, bool isSending);
 void restore_terminal();
 void prepareEncryption();
 
@@ -96,34 +99,31 @@ void processArguments(int argc, char* argv[]) {
 }
 
 void prepareEncryption() {
-  char* key;
-  char* IV;
-  int keysize = 16;
+  struct stat key_stat;
+  int key_fd = open("my.key", O_RDONLY);
+  fstat(key_fd, &key_stat);
+  char *key = (char*) malloc(key_stat.st_size * sizeof(char));
+  read(key_fd, key, key_stat.st_size);
 
-  int keyfd = open("my.key", O_RDONLY);
-  if (keyfd < 0) {
-    handleError("prepareEncryption (open)", errno);
+
+
+  encrypt_fd = mcrypt_module_open("blowfish", NULL, "ofb", NULL);
+  if (encrypt_fd < 0) {
+    handleError("prepareEncryption (encrypt open)", errno);
+  }
+  if (mcrypt_generic_init(encrypt_fd, key, key_stat.st_size, NULL) < 0) {
+    handleError("prepareEncryption (encrypt init)", errno);
   }
 
-  read(keyfd, key, keysize);
-  td = mcrypt_module_open("twofish", NULL, "cfb", NULL);
-  if (td == MCRYPT_FAILED) {
-    handleError("prepareEncryption (mcrypt_module_open)", errno);
+  decrypt_fd = mcrypt_module_open("blowfish", NULL, "ofb", NULL);
+  if (decrypt_fd < 0) {
+    handleError("prepareEncryption (decrypt open)", errno);
   }
-
-  IV = malloc(mcrypt_enc_get_iv_size(td));
-  for (int i = 0; i < mcrypt_enc_get_iv_size(td); i++) {
-    IV[i] = rand();
-  }
-
-  int status = mcrypt_generic_init(td, key, keysize, IV);
-  if (status < 0) {
-    mcrypt_perror(status);
-    handleError("prepareEncryption (generic_init)", errno);
+  if (mcrypt_generic_init(decrypt_fd, key, key_stat.st_size, NULL) < 0) {
+    handleError("prepareEncryption (decrypt init)", errno);
   }
 
   free(key);
-  free(IV);
 }
 
 void connectServer() {
@@ -190,12 +190,12 @@ void normalStart() {
       // stdout or whether we read from stdin and output into the shell
 
       if (polls[0].revents & POLLIN) {
-        if (!read_and_write(0, serv_fd, "SENT")) {
+        if (!read_and_write(0, serv_fd, true)) {
           break;
         }
       }
       if (polls[1].revents & POLLIN) {
-        if (!read_and_write(serv_fd, 1, "RECEIVED")) {
+        if (!read_and_write(serv_fd, 1, false)) {
           exit(0);
         }
       }
@@ -209,7 +209,7 @@ void normalStart() {
   // flush all remaining output
   while(1) {
     if (polls[1].revents & POLLIN) {
-      if (!read_and_write(serv_fd, 1, "RECEIVED")) {
+      if (!read_and_write(serv_fd, 1, false)) {
         exit(0);
       }
     }
@@ -232,17 +232,32 @@ void restore_terminal() {
   }
 }
 
-bool read_and_write(int in_fd, int out_fd, char status[]) {
+char encrypt(char *c) {
+  if(mcrypt_generic(encrypt_fd, c, 1) != 0)
+    handleError("encrypt", errno);
+}
+char decrypt(char *c) {
+  if(mdecrypt_generic(encrypt_fd, c, 1) != 0)
+    handleError("decrypt", errno);
+}
+
+bool read_and_write(int in_fd, int out_fd, bool isSending) {
   ssize_t bytes = read(in_fd, buffer, 256);
   if (bytes < 0) {
     handleError("read_and_write (read)", errno);
   }
 
   if (log_flag) {
+    int n;
     char log_prefix[50];
-    int n = sprintf(log_prefix, " %d bytes: ", strlen(buffer));
 
-    write(log_fd, status, strlen(status));
+    if (isSending) {
+      n = sprintf(log_prefix, "SENT %d bytes: ", strlen(buffer));
+    }
+    else {
+      n = sprintf(log_prefix, "RECEIVED %d bytes: ", strlen(buffer));
+    }
+
     write(log_fd, log_prefix, n);
     write(log_fd, buffer, strlen(buffer));
     write(log_fd, "\n", 1);
@@ -250,6 +265,32 @@ bool read_and_write(int in_fd, int out_fd, char status[]) {
 
   int i;
   for (i = 0; i < bytes; i++) {
+    if (encrypt_flag) {
+      fprintf(stderr, "ENTERED: ");
+      fprintf(stderr, buffer);
+      fprintf(stderr, "\n");
+
+      if (isSending) {
+        encrypt(buffer+i);
+
+        fprintf(stderr, "ENCRYPT: ");
+        fprintf(stderr, buffer);
+        fprintf(stderr, "\n");
+      }
+      else {
+        decrypt(buffer+i);
+
+        fprintf(stderr, "DECRYPT: ");
+        fprintf(stderr, buffer);
+        fprintf(stderr, "\n");
+      }
+    }
+
+    decrypt(buffer+i);
+    fprintf(stderr, "DECRYPT: ");
+    fprintf(stderr, buffer);
+    fprintf(stderr, "\n");
+
     if (write (out_fd, buffer + i, 1) < 0) {
       handleError("read_and_write (write)", errno);
     }

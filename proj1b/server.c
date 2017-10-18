@@ -14,8 +14,19 @@
 #include <signal.h>
 #include <poll.h>
 
+// cryption
+#include <mcrypt.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/types.h>
+
+// network
 #include<sys/socket.h>
 #include<arpa/inet.h> //inet_addr
+
+// cryption gloabl variables
+bool encrypt_flag = false;
+MCRYPT td;
 
 // Shell Stuff
 struct termios original;
@@ -33,10 +44,11 @@ int serv_fd, cli_fd;
 struct sockaddr_in serv, cli;
 
 // Function declerations to keep some semblance of organization
-bool read_and_write(int in_fd, int out_fd);
-bool shell_read_and_write (int in_fd, int out_fd);
+bool read_and_write(int in_fd, int out_fd, bool isSending);
+bool shell_read_and_write (int in_fd, int out_fd, bool isSending);
 void restore_terminal();
 void process_shutdown();
+void prepareEncryption();
 
 void handleError(char loc[256], int err) {
   fprintf(stderr, "Error encountered in ");
@@ -58,13 +70,17 @@ void processArguments(int argc, char* argv[]) {
   static struct option long_options[] =
   {
     {"port", required_argument, NULL, 'p'},
+    {"encrypt", no_argument, NULL, 'e'},
     {0, 0, 0, 0}
   };
 
   while ( (opt = getopt_long(argc, argv, "p:", long_options, NULL)) != -1 ) {
     switch(opt) {
         case 'p': port = atoi(optarg); break;
-        case 'l': break;
+
+        case 'e': encrypt_flag = true;
+                  prepareEncryption();
+                  break;
 
         default  : fprintf(stderr, "Usage : server [OPTION] = [ARGUMENT]\n");
   			           fprintf(stderr, "OPTION: \n\t--port=portnum\n");
@@ -82,6 +98,40 @@ void processArguments(int argc, char* argv[]) {
     fprintf(stderr, "Port number must be between 1024 and 65535.\n");
     exit(1);
   }
+}
+
+void prepareEncryption() {
+  char* key;
+  char* IV;
+  int keysize = 16;
+  key = calloc(1, keysize);
+
+  int keyfd = open("my.key", O_RDONLY);
+  if (keyfd < 0) {
+    handleError("prepareEncryption (open)", errno);
+  }
+
+  read(keyfd, key, keysize);
+  td = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+  if (td == MCRYPT_FAILED) {
+    handleError("prepareEncryption (mcrypt_module_open)", errno);
+  }
+
+  IV = (char*) malloc(mcrypt_enc_get_iv_size(td));
+  if (IV == NULL) {
+    handleError("prepareEncryption (malloc)", errno);
+  }
+  for (int i = 0; i < mcrypt_enc_get_iv_size(td); i++) {
+    IV[i] = rand();
+  }
+
+  int status = mcrypt_generic_init(td, key, keysize, NULL);
+  if (status < 0) {
+    mcrypt_perror(status);
+    handleError("prepareEncryption (generic_init)", errno);
+  }
+
+  free(key);
 }
 
 void startServer() {
@@ -206,13 +256,13 @@ void runProcess() {
       // stdout or whether we read from stdin and output into the shell
 
       if (polls[0].revents & POLLIN) {
-        if (!shell_read_and_write(0, toShell[1])) {
+        if (!shell_read_and_write(0, toShell[1], false)) {
           close(toShell[1]);
           exit(0);
         }
       }
       if (polls[1].revents & POLLIN) {
-        if (!read_and_write(fromShell[0], 1)) {
+        if (!read_and_write(fromShell[0], 1, true)) {
           close(fromShell[0]);
         }
       }
@@ -223,11 +273,11 @@ void runProcess() {
     }
   }
 
-  read_and_write(fromShell[0], 1);
+  read_and_write(fromShell[0], 1, true);
 }
 
 // REMEMBER: IF YOU CHANGE SOMETHING HERE, CHANGE THE SHELL VERSION TOO
-bool read_and_write(int in_fd, int out_fd) {
+bool read_and_write(int in_fd, int out_fd, bool isSending) {
   ssize_t bytes = read(in_fd, buffer, 256);
   if (bytes < 0) {
     handleError("read_and_write (read)", errno);
@@ -235,6 +285,31 @@ bool read_and_write(int in_fd, int out_fd) {
 
   int i;
   for (i = 0; i < bytes; i++) {
+    if (encrypt_flag) {
+      fprintf(stderr, "ENTERED: ");
+      fprintf(stderr, buffer);
+      fprintf(stderr, "\n");
+
+      if (isSending) {
+        if (mcrypt_generic(td, &buffer[i], 1) < 0) {
+          handleError("read_and_write (encrypt)", errno);
+        }
+
+        fprintf(stderr, "ENCRYPT: ");
+        fprintf(stderr, buffer);
+        fprintf(stderr, "\n");
+      }
+      else {
+        if (mdecrypt_generic(td, &buffer[i], 1) < 0) {
+          handleError("read_and_write (decrypt)", errno);
+        }
+
+        fprintf(stderr, "DECRYPT: ");
+        fprintf(stderr, buffer);
+        fprintf(stderr, "\n");
+      }
+    }
+
     if (buffer[i] == 4) {
       return false;
     }
@@ -259,14 +334,44 @@ bool read_and_write(int in_fd, int out_fd) {
 // and double outputs. This is only used for the inputting of text
 // the shell.
 // REMEMBER.
-bool shell_read_and_write (int in_fd, int out_fd) {
+bool shell_read_and_write (int in_fd, int out_fd, bool isSending) {
   ssize_t bytes = read(in_fd, buffer, 256);
   if (bytes < 0) {
     handleError("shell_read_and_write (read)", errno);
   }
 
+  char copyBuffer[256];
+  strcpy(copyBuffer, buffer);     // a crappy hack to get encryption to work
+                                  // because we need to print the unecrypted
+                                  // to the shell.
+
   int i;
   for (i = 0; i < bytes; i++) {
+    if (encrypt_flag) {
+      fprintf(stderr, "ENTERED: ");
+      fprintf(stderr, buffer);
+      fprintf(stderr, "\n");
+
+      if (isSending) {
+        if (mcrypt_generic(td, &buffer[i], 1) < 0) {
+          handleError("read_and_write (encrypt)", errno);
+        }
+
+        fprintf(stderr, "ENCRYPT: ");
+        fprintf(stderr, buffer);
+        fprintf(stderr, "\n");
+      }
+      else {
+        if (mdecrypt_generic(td, &buffer[i], 1) < 0) {
+          handleError("read_and_write (decrypt)", errno);
+        }
+
+        fprintf(stderr, "DECRYPT: ");
+        fprintf(stderr, buffer);
+        fprintf(stderr, "\n");
+      }
+    }
+
     if (buffer[i] == 3) {
       if (write(1, "^c", 2) < 0) {
         handleError("shell_read_and_write (write, ^c)", errno);
@@ -281,17 +386,33 @@ bool shell_read_and_write (int in_fd, int out_fd) {
     }
     else if (buffer[i] == '\r' || buffer[i] == '\n') {
       char output[2] = {'\r', '\n'};
-      if (write(1, output, 2) < 0) {
-        handleError("shell_read_and_write (write, \\r\\n)", errno);
-      }
+
       if (write(out_fd, output + 1, 1) < 0) {
         handleError("shell_read_and_write (out_fd write, \\n)", errno);
+      }
+
+      if (!encrypt_flag) {
+        if (isSending) {
+          if (mcrypt_generic(td, &output[0], 1) < 0) {
+            handleError("read_and_write (encrypt)", errno);
+          }
+        }
+        else {
+          if (mdecrypt_generic(td, &output[0], 1) < 0) {
+            handleError("read_and_write (decrypt)", errno);
+          }
+        }
+      }
+
+      if (write(1, output, 2) < 0) {
+        handleError("shell_read_and_write (write, \\r\\n)", errno);
       }
 
       continue;
     }
 
-    if (write (1, buffer + i, 1) < 0) {
+    fprintf(stderr, copyBuffer);
+    if (write (1, copyBuffer + i, 1) < 0) {
       handleError("shell_read_and_write (write)", errno);
     }
     if (write (out_fd, buffer + i, 1) < 0) {
@@ -310,7 +431,7 @@ void process_shutdown() {
         (polls[1].revents & (POLLHUP | POLLERR))) {
       break;
     }
-    if (!read_and_write(fromShell[0], 1)) {
+    if (!read_and_write(fromShell[0], 1, true)) {
       close(fromShell[0]);
       break;
     }
@@ -322,7 +443,7 @@ void process_shutdown() {
   close(fromShell[1]);
 
   while (waitpid(process_id, &status, WNOHANG) == 0) {
-    fprintf(stderr, "Waiting for Child\n");
+
   }
   fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d\n",
          (status & 0x007f), (status & 0xff00) >> 8);
