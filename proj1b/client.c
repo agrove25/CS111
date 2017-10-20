@@ -34,7 +34,7 @@ struct termios original;
 char buffer[256];
 struct pollfd polls[2];
 
-MCRYPT encrypt_fd, decrypt_fd;
+MCRYPT etd, dtd;
 
 // Client-Server Variables
 int serv_fd;
@@ -43,7 +43,7 @@ struct sockaddr_in server;
 // Function Definitions
 bool read_and_write(int in_fd, int out_fd, bool isSending);
 void restore_terminal();
-void prepareEncryption();
+void prepareEncryption(char filename[]);
 
 void handleError(char loc[256], int err) {
   fprintf(stderr, "Error encountered in ");
@@ -61,11 +61,11 @@ void processArguments(int argc, char* argv[]) {
   {
     {"port", required_argument, NULL, 'p'},
     {"log", required_argument, NULL, 'l'},
-    {"encrypt", no_argument, NULL, 'e'},
+    {"encrypt", required_argument, NULL, 'e'},
     {0, 0, 0, 0}
   };
 
-  while ( (opt = getopt_long(argc, argv, "p:l:", long_options, NULL)) != -1 ) {
+  while ( (opt = getopt_long(argc, argv, "p:l:e:", long_options, NULL)) != -1 ) {
     switch(opt) {
         case 'p': port = atoi(optarg); break;
 
@@ -76,11 +76,11 @@ void processArguments(int argc, char* argv[]) {
                   break;
 
         case 'e': encrypt_flag = true;
-                  prepareEncryption();
+                  prepareEncryption(optarg);
                   break;
 
         default:  fprintf(stderr, "Usage : server [OPTION] = [ARGUMENT]\n");
-  			          fprintf(stderr, "OPTION: \n\t--port=portnum\n");
+  			          fprintf(stderr, "OPTION: \n\t--port=portnum\n\t--log=filename\n\t--encrypt=filename\n");
   			          exit(1);
   			          break;
 
@@ -98,32 +98,48 @@ void processArguments(int argc, char* argv[]) {
 
 }
 
-void prepareEncryption() {
-  struct stat key_stat;
-  int key_fd = open("my.key", O_RDONLY);
-  fstat(key_fd, &key_stat);
-  char *key = (char*) malloc(key_stat.st_size * sizeof(char));
-  read(key_fd, key, key_stat.st_size);
+void prepareEncryption(char filename[]) {
+  char* key;
+  char* IV;
+  int keysize = 16;
+  key = calloc(1, keysize);
 
-
-
-  encrypt_fd = mcrypt_module_open("blowfish", NULL, "ofb", NULL);
-  if (encrypt_fd < 0) {
-    handleError("prepareEncryption (encrypt open)", errno);
-  }
-  if (mcrypt_generic_init(encrypt_fd, key, key_stat.st_size, NULL) < 0) {
-    handleError("prepareEncryption (encrypt init)", errno);
+  int keyfd = open(filename, O_RDONLY);
+  if (keyfd < 0) {
+    handleError("prepareEncryption (open)", errno);
   }
 
-  decrypt_fd = mcrypt_module_open("blowfish", NULL, "ofb", NULL);
-  if (decrypt_fd < 0) {
-    handleError("prepareEncryption (decrypt open)", errno);
+  read(keyfd, key, keysize);
+  etd = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+  if (etd == MCRYPT_FAILED) {
+    handleError("prepareEncryption (mcrypt_module_open)", errno);
   }
-  if (mcrypt_generic_init(decrypt_fd, key, key_stat.st_size, NULL) < 0) {
-    handleError("prepareEncryption (decrypt init)", errno);
+  dtd = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+  if (dtd == MCRYPT_FAILED) {
+    handleError("prepareEncryption (mcrypt_module_open)", errno);
+  }
+
+  IV = (char*) malloc(mcrypt_enc_get_iv_size(etd));
+  if (IV == NULL) {
+    handleError("prepareEncryption (malloc)", errno);
+  }
+  for (int i = 0; i < mcrypt_enc_get_iv_size(etd); i++) {
+    IV[i] = rand();
+  }
+
+  int status = mcrypt_generic_init(etd, key, keysize, NULL);
+  if (status < 0) {
+    mcrypt_perror(status);
+    handleError("prepareEncryption (generic_init)", errno);
+  }
+  status = mcrypt_generic_init(dtd, key, keysize, NULL);
+  if (status < 0) {
+    mcrypt_perror(status);
+    handleError("prepareEncryption (generic_init)", errno);
   }
 
   free(key);
+  free(IV);
 }
 
 void connectServer() {
@@ -232,71 +248,78 @@ void restore_terminal() {
   }
 }
 
-char encrypt(char *c) {
-  if(mcrypt_generic(encrypt_fd, c, 1) != 0)
-    handleError("encrypt", errno);
-}
-char decrypt(char *c) {
-  if(mdecrypt_generic(encrypt_fd, c, 1) != 0)
-    handleError("decrypt", errno);
-}
-
 bool read_and_write(int in_fd, int out_fd, bool isSending) {
   ssize_t bytes = read(in_fd, buffer, 256);
   if (bytes < 0) {
     handleError("read_and_write (read)", errno);
   }
 
-  if (log_flag) {
+  if (!isSending && log_flag) {
     int n;
     char log_prefix[50];
 
-    if (isSending) {
-      n = sprintf(log_prefix, "SENT %d bytes: ", strlen(buffer));
-    }
-    else {
-      n = sprintf(log_prefix, "RECEIVED %d bytes: ", strlen(buffer));
-    }
+    n = sprintf(log_prefix, "RECEIVED %d bytes: ", strlen(buffer));
 
     write(log_fd, log_prefix, n);
     write(log_fd, buffer, strlen(buffer));
     write(log_fd, "\n", 1);
   }
 
+
   int i;
+  bool quit = false;
   for (i = 0; i < bytes; i++) {
+    if (isSending && write (1, buffer + i, 1) < 0) {
+      handleError("read_and_write (write)", errno);
+    }
+    if (isSending && (buffer[i] == 4 || buffer[i] == 3)) {
+      fprintf(stderr, "quit triggered");
+      quit = true;
+    }
+
+    // fprintf(stderr, "RECEIVED: %c\r\n", buffer[i]);
+
     if (encrypt_flag) {
-      fprintf(stderr, "ENTERED: ");
-      fprintf(stderr, buffer);
-      fprintf(stderr, "\n");
-
       if (isSending) {
-        encrypt(buffer+i);
-
-        fprintf(stderr, "ENCRYPT: ");
-        fprintf(stderr, buffer);
-        fprintf(stderr, "\n");
+        if (mcrypt_generic(etd, &buffer[i], 1) < 0) {
+          handleError("read_and_write (encrypt)", errno);
+        }
       }
       else {
-        decrypt(buffer+i);
-
-        fprintf(stderr, "DECRYPT: ");
-        fprintf(stderr, buffer);
-        fprintf(stderr, "\n");
+        if (mdecrypt_generic(dtd, &buffer[i], 1) < 0) {
+          handleError("read_and_write (decrypt)", errno);
+        }
       }
     }
 
-    decrypt(buffer+i);
-    fprintf(stderr, "DECRYPT: ");
-    fprintf(stderr, buffer);
-    fprintf(stderr, "\n");
+    // fprintf(stderr, "SENT: %c\r\n\n", buffer[i]);
 
+    if (!isSending && buffer[i] == '\n') {
+      char newline[2] = {'\r', '\n'};
+
+      if (write (out_fd, newline, 2) < 0) {
+        handleError("read_and_write (newline write)", errno);
+      }
+
+      continue;
+    }
     if (write (out_fd, buffer + i, 1) < 0) {
       handleError("read_and_write (write)", errno);
     }
-    if (buffer[i] == 4 || buffer[i] == 3) {
+    if ((!isSending && (buffer[i] == 4 || buffer[i] == 3)) || quit) {
       return false;
     }
+  }
+
+  if (isSending && log_flag) {
+    int n;
+    char log_prefix[50];
+
+    n = sprintf(log_prefix, "SENT %d bytes: ", strlen(buffer));
+
+    write(log_fd, log_prefix, n);
+    write(log_fd, buffer, strlen(buffer));
+    write(log_fd, "\n", 1);
   }
 
   return true;

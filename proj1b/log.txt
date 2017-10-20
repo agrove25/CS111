@@ -1,22 +1,43 @@
-SENT 1 bytes: l
-RECEIVED 1 bytes: l
-SENT 1 bytes: s
-RECEIVED 1 bytes: s
-SENT 1 bytes: 
-RECEIVED 2 bytes: 
+SENT 1 bytes: 
+SENT 1 bytes: a
+SENT 1 bytes: x
+SENT 1 bytes: ä
+RECEIVED 17 bytes: ˜·u–¢q¸/ß6Ç§}½â
+RECEIVED 19 bytes: „&½oT_G8ù%ÙÚU†¤
+SENT 19 bytes: command not found
 
-RECEIVED 18 bytes: client
-client.c
+SENT 19 bytes: "command not found
 
-RECEIVED 46 bytes: example
-log.txt
-Makefile
-server
-server.c
+SENT 19 bytes: lcommand not found
 
-SENT 46 bytes: xample
-log.txt
-Makefile
-server
-server.c
+SENT 19 bytes: ƒcommand not found
+
+SENT 19 bytes: ûcommand not found
+
+RECEIVED 19 bytes: ¾éÈw¬1RËÄqXìy-Iœ\d
+
+RECEIVED 21 bytes: ¨\àZÅ×Ø™OÊÀ*üP
+±ï
+SENT 21 bytes: —: command not found
+
+SENT 21 bytes: ^: command not found
+
+SENT 21 bytes: š: command not found
+
+SENT 21 bytes: ã: command not found
+
+SENT 21 bytes: : command not found
+
+SENT 21 bytes: –: command not found
+
+SENT 21 bytes: c: command not found
+
+SENT 21 bytes: |: command not found
+
+SENT 21 bytes: ò: command not found
+
+RECEIVED 21 bytes: {DèN€˜]€g‰uÕÏŞund
+
+RECEIVED 31 bytes: 8ŸØ’ÉlÀCÄX—íÆVbwÔgíÈÖ`GO§³+¢
+SENT 31 bytes: [177yayaya': command not found
 
