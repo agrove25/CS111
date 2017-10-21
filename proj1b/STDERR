@@ -1,0 +1,3 @@
+Connected to server.
+Connected.
+Error encountered in adjust_terminal (tcgetattr): Inappropriate ioctl for device

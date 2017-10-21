@@ -1,252 +1,439 @@
-//SERVER
-#include <stdio.h>
-#include <string.h>
-#include <mcrypt.h>
-#include <pthread.h>
-#include <getopt.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+// NAME: Andrew Grove
+// EMAIL: koeswantoandrew@gmail.com
+// ID: 304785991
+
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/wait.h>
-#include <netinet/in.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <sys/types.h>
 
-//GLOBAL VARIABLES
-//Buffer size
-unsigned int BUFF_LIMIT = 1;
-//Pair of pipes for communication between shell and main process
-int p1_fd[2];
-int p2_fd[2];
-//Flags for encryption, length of key generated and socket file descriptors
-int crypt_flag = 0, key_len, socket_fd, newsocket_fd;
-//Child process and thread id's
-pid_t child_id;
-pthread_t thread_id;
-//File descriptors for encryption modules
-MCRYPT crypt_fd, decrypt_fd;
+#include <getopt.h>
+#include <errno.h>
+#include <termios.h>
+#include <signal.h>
+#include <poll.h>
 
-//Uses fstat and the name of the file to grab the contents of the file (the key)
-char* grab_key(char *filename)
-{
-	struct stat key_stat;
-	int key_fd = open(filename, O_RDONLY);
-	if(fstat(key_fd, &key_stat) < 0) { perror("fstat"); exit(EXIT_FAILURE); }
-	char* key = (char*) malloc(key_stat.st_size * sizeof(char));
-	if(read(key_fd, key, key_stat.st_size) < 0) { perror("read"); exit(EXIT_FAILURE); }
-	key_len = key_stat.st_size;
-	return key;
+// cryption
+#include <mcrypt.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/types.h>
+
+// network
+#include<sys/socket.h>
+#include<arpa/inet.h> //inet_addr
+
+// cryption gloabl variables
+bool encrypt_flag = false;
+MCRYPT etd, dtd;
+
+// Shell Stuff
+struct termios original;
+bool activeShell = false;
+char buffer[256];
+
+int toShell[2];     // (rear: child, front: parent -- parent->child)
+int fromShell[2];   // (rear: parent, front: child -- child->parent)
+pid_t process_id;
+struct pollfd polls[2];
+
+// Server-Client Stuff
+int port = -1;
+int serv_fd, cli_fd;
+struct sockaddr_in serv, cli;
+
+// Function declerations to keep some semblance of organization
+bool read_and_write(int in_fd, int out_fd, bool isSending);
+bool shell_read_and_write (int in_fd, int out_fd, bool isSending);
+void restore_terminal();
+void process_shutdown();
+void close_socket();
+void prepareEncryption(char filename[]);
+
+void handleError(char loc[256], int err) {
+  fprintf(stderr, "Error encountered in ");
+  fprintf(stderr, loc);
+  fprintf(stderr, ": ");
+  fprintf(stderr, strerror(err));
+
+  exit(1);
 }
 
-//Runs the blowfish ofb encryption algorithm on specified buffer for specified size
-void encrypt(char *buff, int crypt_len)
-{
-	if(mcrypt_generic(crypt_fd, buff, crypt_len) != 0) { perror("Error in encryption"); exit(EXIT_FAILURE); }
+void signal_handler() {
+  fprintf(stderr, "encountered the SIGPIPE error\n");
+  exit(0);
 }
 
-//Runs the corresponding decryption algorithm on the specified buffer for the size
-void decrypt(char * buff, int decrypt_len)
-{
-	if(mdecrypt_generic(decrypt_fd, buff, decrypt_len) != 0) { perror("Error in decryption"); exit(EXIT_FAILURE); }
+void processArguments(int argc, char* argv[]) {
+  char opt;
+
+  static struct option long_options[] =
+  {
+    {"port", required_argument, NULL, 'p'},
+    {"encrypt", required_argument, NULL, 'e'},
+    {0, 0, 0, 0}
+  };
+
+  while ( (opt = getopt_long(argc, argv, "p:e:", long_options, NULL)) != -1 ) {
+    switch(opt) {
+        case 'p': port = atoi(optarg); break;
+
+        case 'e': encrypt_flag = true;
+                  prepareEncryption(optarg);
+                  break;
+
+        default  : fprintf(stderr, "Usage : server [OPTION] = [ARGUMENT]\n");
+  			           fprintf(stderr, "OPTION: \n\t--port=portnum\n\t--encrypt=filename\n");
+  			           exit(1);
+  			           break;
+
+    }
+  }
+
+  if (port == -1) {
+    fprintf(stderr, "Port option is mandatory.\n");
+    handleError("processArguments (port)", errno);
+  }
+  else if (port <= 1024 || port >= 65535) {
+    fprintf(stderr, "Port number must be between 1024 and 65535.\n");
+    exit(1);
+  }
 }
 
-//Initializes the encryption and decryption modules while performing error checks
-void encryption_decryption_init(char *key, int key_len)
-{
-	crypt_fd = mcrypt_module_open("blowfish", NULL, "ofb", NULL);
-	if(crypt_fd == MCRYPT_FAILED) { perror("Error opening module"); exit(EXIT_FAILURE); }
-	if(mcrypt_generic_init(crypt_fd, key, key_len, NULL) < 0) { perror("Error while initializing encrypt"); exit(EXIT_FAILURE); }
+void prepareEncryption(char filename[]) {
+  char* key;
+  char* IV;
+  int keysize = 16;
+  key = calloc(1, keysize);
 
-	decrypt_fd = mcrypt_module_open("blowfish", NULL, "ofb", NULL);
-	if(decrypt_fd == MCRYPT_FAILED) { perror("Error opening module"); exit(EXIT_FAILURE); }
-	if(mcrypt_generic_init(decrypt_fd, key, key_len, NULL) < 0) { perror("Error while initializing decrypt"); exit(EXIT_FAILURE); }
+  int keyfd = open(filename, O_RDONLY);
+  if (keyfd < 0) {
+    handleError("prepareEncryption (open)", errno);
+  }
+
+  read(keyfd, key, keysize);
+  etd = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+  if (etd == MCRYPT_FAILED) {
+    handleError("prepareEncryption (mcrypt_module_open)", errno);
+  }
+  dtd = mcrypt_module_open("twofish", NULL, "cfb", NULL);
+  if (dtd == MCRYPT_FAILED) {
+    handleError("prepareEncryption (mcrypt_module_open)", errno);
+  }
+
+  IV = (char*) malloc(mcrypt_enc_get_iv_size(etd));
+  if (IV == NULL) {
+    handleError("prepareEncryption (malloc)", errno);
+  }
+  for (int i = 0; i < mcrypt_enc_get_iv_size(etd); i++) {
+    IV[i] = rand();
+  }
+
+  int status = mcrypt_generic_init(etd, key, keysize, NULL);
+  if (status < 0) {
+    mcrypt_perror(status);
+    handleError("prepareEncryption (generic_init)", errno);
+  }
+  status = mcrypt_generic_init(dtd, key, keysize, NULL);
+  if (status < 0) {
+    mcrypt_perror(status);
+    handleError("prepareEncryption (generic_init)", errno);
+  }
+
+  free(key);
+  free(IV);
+
+  atexit(close_socket);
 }
 
-//Deinitializes (closes) the modules that were opened for encryption/decryption
-void encryption_decryption_deinit()
-{
-	mcrypt_generic_deinit(crypt_fd);
-	mcrypt_module_close(crypt_fd);
+void startServer() {
+  serv_fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (serv_fd == -1) {
+    handleError("startServer (declaring socket)", errno);
+  }
+  fprintf(stderr, "Created socket\r\n");
 
-	mcrypt_generic_deinit(decrypt_fd);
-	mcrypt_module_close(decrypt_fd);
+  serv.sin_family = AF_INET;
+  serv.sin_addr.s_addr = INADDR_ANY;
+  serv.sin_port = htons( port );
+
+  if (bind(serv_fd, (struct sockaddr *) &serv, sizeof(serv)) < 0)
+    handleError("startServer (bind socket)", errno);
+
+  listen(serv_fd, 5);
+  fprintf(stderr, "Waiting for clients...\r\n");
+
+  // Accepting Conenctions...
+  int addr_len = sizeof(cli);
+  cli_fd = accept(serv_fd, (struct sockaddr *) &cli, (socklen_t*) &addr_len);
+  if (cli_fd == -1) {
+    handleError("startServer (accepting client)", errno);
+  }
+  fprintf(stderr, "Accepted client\r\n");
 }
 
-//Closes all the open file descriptors
-void close_all()
-{
-	close(0);
-	close(1);
-	close(2);
-	close(p1_fd[1]);
-	close(p2_fd[0]);
-	close(socket_fd);
+// sets the global var original and changes terminal attributes
+void adjust_terminal() {
+  int result;
+  struct termios modified;
+
+  result = tcgetattr (STDIN_FILENO, &original);
+  if (result < 0) {
+    handleError("adjust_terminal (tcgetattr, original)", errno);
+  }
+
+  atexit(restore_terminal);
+
+  result = tcgetattr (STDIN_FILENO, &modified);
+  if (result < 0) {
+    handleError("adjust_terminal (tcgetattr, modified)", errno);
+  }
+
+  modified.c_iflag = ISTRIP;
+  modified.c_oflag = 0;
+  modified.c_lflag = 0;
+
+  if (tcsetattr(STDIN_FILENO, TCSANOW, &modified) < 0) {
+    handleError("adjust_terminal (tcsetattr)", errno);
+  }
 }
 
-//Ends the program by killing the child, closing all pipes, and exiting with the
-//respective codes. The thread is cancelled if the command is not from the socket
-void end_program(int from_socket)
-{
-	close_all();
-	kill(child_id, SIGKILL);
-	if(from_socket) { exit(1); }
-	else { 
-		pthread_cancel(thread_id);
-		exit(2); }
+void activateShell() {
+  signal(SIGPIPE, signal_handler);
+
+  if (pipe(toShell) != 0) {
+    handleError("main (pipe to shell)", errno);
+  }
+  if (pipe(fromShell) != 0) {
+    handleError("main (pipe from shell)", errno);
+  }
+
+  process_id = fork();
+  if (process_id < 0) {
+    handleError("main (fork)", errno);
+  }
+  else if (process_id == 0) {
+    // Child process
+    close(toShell[1]);
+    close(fromShell[0]);
+
+    dup2(toShell[0], 0);
+    dup2(fromShell[1], 1);
+    dup2(fromShell[1], 2);
+
+    close(toShell[0]);
+    close(fromShell[1]);
+
+    if (execvp("/bin/bash", NULL)) {
+      handleError("main (execvp)", errno);
+    }
+  }
+  else {
+    // Parent process
+    close(toShell[0]);
+    close(fromShell[1]);
+
+    // Polling initializtion
+    polls[0].fd = cli_fd;
+    polls[0].events = POLLIN;
+
+    polls[1].fd = fromShell[0];
+    polls[1].events = POLLIN;
+
+    atexit(process_shutdown);
+  }
 }
 
-//Reads and writes one character at a time to the respective file descriptors
-//taking care of whether the command is from the socket or to the socket, while
-//allowing for encryption and corresponding decryption of data
-void read_write(int read_fd, int write_fd, int from_sock)
-{
-	int w_flag = 0, byte_offset = 0;
-	char buffer[BUFF_LIMIT]; 
-	ssize_t num_bytes = read(read_fd, buffer, 1);
-	if(num_bytes == 0) { end_program(from_sock); }
-	while(num_bytes)
-	{
-		if(crypt_flag && from_sock) { decrypt(buffer, BUFF_LIMIT); } 
+// contains the polling loop to switch read_and_writes
+void runProcess() {
+  // also an infinite loop, because the polling if statement will control
+  // when the program exits
+  int poll_result;
 
-		if(*(buffer + byte_offset) == 4)
-		{ 
-			end_program(from_sock);
-		}
+  while (1) {
+    if ((poll_result = poll(polls, 2, 0)) < 0) {
+      handleError("shellStart (poll)", errno);
+    }
+    else if (poll_result > 0) {
+      // this branch controls whether we read from shell and outputs into
+      // stdout or whether we read from stdin and output into the shell
 
-		w_flag = 0;
-		//Runs all the time with buffer of size one, but allows for flexibility
-		//of increasing the buffer size
-		if(num_bytes + byte_offset >= BUFF_LIMIT)
-		{
-			while(byte_offset < BUFF_LIMIT)
-			{
-				if(crypt_flag && !from_sock) { encrypt(buffer, BUFF_LIMIT); }
-				write(write_fd, buffer + byte_offset, 1);
-				byte_offset++;
-				w_flag = 1;
-			}
-			if(!w_flag) 
-			{
-				if(crypt_flag && !from_sock) { encrypt(buffer, BUFF_LIMIT); }
-				write(write_fd, buffer+byte_offset,1); 
-			}
-			num_bytes = read(read_fd, buffer,1);
-			if(num_bytes == 0) { end_program(from_sock); }
-			byte_offset = 0;
-			continue;
-		}
-		//Runs if buffer size > 1
-		if(crypt_flag && !from_sock) { encrypt(buffer, BUFF_LIMIT); }
-		write(write_fd,buffer+byte_offset,1);
-		byte_offset++;
-		num_bytes = read(read_fd, buffer + byte_offset,1);
-		if(num_bytes == 0) { end_program(from_sock); }
-	}
+      if (polls[0].revents & POLLIN) {
+        if (!shell_read_and_write(cli_fd, toShell[1], false)) {
+          close(toShell[1]);
+          exit(0);
+        }
+      }
+      if (polls[1].revents & POLLIN) {
+        if (!read_and_write(fromShell[0], cli_fd, true)) {
+          close(fromShell[0]);
+        }
+      }
+      if ((polls[0].revents & (POLLHUP | POLLERR)) ||
+          (polls[1].revents & (POLLHUP | POLLERR))) {
+        exit(0);
+      }
+    }
+  }
+
+  read_and_write(fromShell[0], 1, true);
 }
 
-//Creates pipes
-void create_pipe(int fd[2])
-{
-	if(pipe(fd) == -1)
-	{
-		perror("Pipe Error");
-		exit(EXIT_FAILURE);
-	}
+// REMEMBER: IF YOU CHANGE SOMETHING HERE, CHANGE THE SHELL VERSION TOO
+bool read_and_write(int in_fd, int out_fd, bool isSending) {
+  ssize_t bytes = read(in_fd, buffer, 256);
+  if (bytes < 0) {
+    handleError("read_and_write (read)", errno);
+  }
+
+  int i;
+  for (i = 0; i < bytes; i++) {
+    // fprintf(stderr, "RECEIVED: %c\r\n", buffer[i]);
+
+    if (encrypt_flag) {
+      if (isSending) {
+        if (mcrypt_generic(etd, &buffer[i], 1) < 0) {
+          handleError("read_and_write (encrypt)", errno);
+        }
+      }
+      else {
+        if (mdecrypt_generic(dtd, &buffer[i], 1) < 0) {
+          handleError("read_and_write (decrypt)", errno);
+        }
+      }
+    }
+
+    if (buffer[i] == 4) {
+      return false;
+    }
+    /*
+    if (buffer[i] == '\r' || buffer[i] == '\n') {
+      char output[1] = {'\n'};
+      if (write(out_fd, output, 2) < 0) {
+        handleError("read_and_write (write, \\r\\n)", errno);
+      }
+
+      if (buffer[i+1] == '\n') i++;
+      continue;
+    }
+    */
+    // fprintf(stderr, "SENT: %c\r\n\n", buffer[i]);
+    if (write (out_fd, buffer + i, 1) < 0) {
+      handleError("read_and_write (write)", errno);
+    }
+  }
+
+  return true;
 }
 
-//Used by the child process to redirect the respective file descriptors and 
-//execute the bash shell
-void exec_shell()
-{
-	close(p1_fd[1]);
-	close(p2_fd[0]);
-	dup2(p1_fd[0], 0);
-	dup2(p2_fd[1], 1);
-	dup2(p2_fd[1], 2);
-	close(p1_fd[0]);
-	close(p2_fd[1]);
-	if(execvp("/bin/bash",NULL) == -1)
-	{
-		perror("Exec Error");
-		exit(EXIT_FAILURE);
-	}
+// The read_and_write to the shell (due to small differences like \r)
+// and double outputs. This is only used for the inputting of text
+// the shell.
+// REMEMBER.
+bool shell_read_and_write (int in_fd, int out_fd, bool isSending) {
+  ssize_t bytes = read(in_fd, buffer, 256);
+  if (bytes < 0) {
+    handleError("shell_read_and_write (read)", errno);
+  }
+
+  int i;
+  for (i = 0; i < bytes; i++) {
+    // fprintf(stderr, "RECEIVED: %c\r\n", buffer[i]);
+
+    if (encrypt_flag) {
+      if (isSending) {
+        if (mcrypt_generic(etd, &buffer[i], 1) < 0) {
+          handleError("read_and_write (encrypt)", errno);
+        }
+      }
+      else {
+        if (mdecrypt_generic(dtd, &buffer[i], 1) < 0) {
+          handleError("read_and_write (decrypt)", errno);
+        }
+      }
+    }
+
+    // fprintf(stderr, "SENT: %c\r\n\n", buffer[i]);
+
+    if (buffer[i] == 3) {
+      kill(process_id, SIGINT);
+      i++;
+      continue;
+    }
+    if (buffer[i] == 4) {
+      return false;
+    }
+    else if (buffer[i] == '\r' || buffer[i] == '\n') {
+      char output[2] = {'\r', '\n'};
+
+      if (write(out_fd, output + 1, 1) < 0) {
+        handleError("shell_read_and_write (out_fd write, \\n)", errno);
+      }
+
+      continue;
+    }
+
+    if (write (out_fd, buffer + i, 1) < 0) {
+      handleError("shell_read_and_write (out_fd write)", errno);
+    }
+  }
+
+  return true;
 }
 
-//Called by the thread to output the shell data to the socket to the client
-void* transfer_shell(void* newsocket_fd)
-{
-	close(p1_fd[0]);
-	close(p2_fd[1]);
-	read_write(p2_fd[0],1, 0);
+void process_shutdown() {
+  int status;
+
+  while (polls[1].revents & POLLIN) {
+    if ((polls[0].revents & (POLLHUP | POLLERR)) ||
+        (polls[1].revents & (POLLHUP | POLLERR))) {
+      break;
+    }
+    if (!read_and_write(fromShell[0], cli_fd, true)) {
+      close(fromShell[0]);
+      break;
+    }
+  }
+
+  close(toShell[0]);
+  close(toShell[1]);
+  close(fromShell[0]);
+  close(fromShell[1]);
+
+  while (waitpid(process_id, &status, WNOHANG) == 0) {
+
+  }
+
+  /*
+  fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d\r\n",
+         (status & 0x007f), (status & 0xff00) >> 8);
+  */
+
+  char output[100];
+  int n = sprintf(output, "SHELL EXIT SIGNAL=%d STATUS=%d\n",
+                 (status & 0x007f), (status & 0xff00) >> 8);
+
+  write(cli_fd, output, n);
 }
 
-int main(int argc, char **argv)
-{
-	int opt = 0, port_num, client_len;
-	struct sockaddr_in server_addr, client_addr;
-	static struct option long_opts[] =
-	{
-		{"port", required_argument, 0, 'p'},
-		{"encrypt", no_argument, 0, 'e'}
-	};
+void close_socket() {
+  close(cli_fd);
+  close(serv_fd);
+}
 
-	while((opt = getopt_long(argc, argv, "p:e", long_opts, NULL)) != -1)
-	{
-		switch(opt)
-		{
-			case 'p':
-				//Grab port number
-				port_num = atoi(optarg);
-				break;
-			case 'e':
-				//Turn on Encryption
-				crypt_flag = 1;
-				//Get the key
-				char* key = grab_key("my.key");
-				//Initialize encryption and decryption
-				encryption_decryption_init(key, key_len);
-				break;
-			default:
-				//Usage message
-				fprintf(stderr, "Usage [e] port_number");
-				break;
-		}
-	}
-	//Set up socket connection
-	socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if(socket_fd < 0) { perror("Error opening socket"); exit(1); }
-	memset((char*) &server_addr, 0, sizeof(server_addr));
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(port_num);
-	server_addr.sin_addr.s_addr = INADDR_ANY;
-	if(bind(socket_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0)
-	{
-		perror("Error binding socket");
-		exit(1);
-	}
-	//Listen for data over the socket
-	listen(socket_fd, 5);
-	client_len = sizeof(client_addr);
-	//Block while accepting data input as a stream
-	newsocket_fd = accept(socket_fd, (struct sockaddr *) &client_addr, &client_len);
-	if(newsocket_fd < 0) { perror("Error accepting the socket"); exit(1); }
-	create_pipe(p1_fd);
-	create_pipe(p2_fd);
-	child_id = fork();
-	if(child_id < 0) { perror("Error forking"); exit(1); }
-	//Run the child process that is the shell
-	else if(child_id == 0)	{ exec_shell(); }
-	else
-	{
-		//Create the thread to send shell's output to the client
-		pthread_create(&thread_id, NULL, transfer_shell, &newsocket_fd);
-	}
-	//Redirect stdin/stdout/stderr to the socket
-	dup2(newsocket_fd, 0);
-	dup2(newsocket_fd, 1);
-	dup2(newsocket_fd, 2);
-	close(newsocket_fd);
-	read_write(0, p1_fd[1], 1);
-	encryption_decryption_deinit();
-	exit(0);
+// helper function that is called at the end by atexit in adjust
+void restore_terminal() {
+  if (tcsetattr(STDIN_FILENO, TCSANOW, &original) < 0) {
+    handleError("restore_terminal (tcsetattr)", errno);
+  }
+}
+
+int main(int argc, char* argv[]) {
+  adjust_terminal();
+  processArguments(argc, argv);
+  startServer();
+  activateShell();
+  runProcess();
+  exit(0);
 }

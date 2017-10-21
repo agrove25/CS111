@@ -31,7 +31,6 @@ bool log_flag = false, encrypt_flag = false;
 int log_fd = -1;
 
 struct termios original;
-char buffer[256];
 struct pollfd polls[2];
 
 MCRYPT etd, dtd;
@@ -52,6 +51,11 @@ void handleError(char loc[256], int err) {
   fprintf(stderr, strerror(err));
 
   exit(1);
+}
+
+void signal_handler() {
+  fprintf(stderr, "encountered the SIGPIPE error\n");
+  exit(0);
 }
 
 void processArguments(int argc, char* argv[]) {
@@ -188,20 +192,22 @@ void adjust_terminal() {
 
 void setPoller() {
   polls[0].fd = 0;
-  polls[0].events = POLLIN;
+  polls[0].events = POLLIN | POLLHUP | POLLERR;
 
   polls[1].fd = serv_fd;
-  polls[1].events = POLLIN;
+  polls[1].events = POLLIN | POLLHUP | POLLERR;
 }
 
 void normalStart() {
   int poll_result;
 
+  signal(SIGPIPE, signal_handler);
+
   while (1) {
     if ((poll_result = poll(polls, 2, 0)) < 0) {
       handleError("normalStart (poll)", errno);
     }
-    else if (poll_result > 0) {
+    else if (poll_result >= 0) {
       // this branch controls whether we read from shell and outputs into
       // stdout or whether we read from stdin and output into the shell
 
@@ -224,18 +230,23 @@ void normalStart() {
 
   // flush all remaining output
   while(1) {
-    if (polls[1].revents & POLLIN) {
-      if (!read_and_write(serv_fd, 1, false)) {
+    if ((poll_result = poll(polls, 2, 0)) < 0) {
+      handleError("normalStart (poll)", errno);
+    }
+    else if (poll_result >= 0) {
+      // this branch controls whether we read from shell and outputs into
+      // stdout or whether we read from stdin and output into the shell
+      if (polls[1].revents & POLLIN) {
+        if (!read_and_write(serv_fd, 1, false)) {
+          exit(0);
+        }
+      }
+      if ((polls[0].revents & (POLLHUP | POLLERR)) ||
+          (polls[1].revents & (POLLHUP | POLLERR))) {
+        fprintf(stderr, "hello?");
+
         exit(0);
       }
-    }
-    else {
-      exit(0);
-    }
-
-    if ((polls[0].revents & (POLLHUP | POLLERR)) ||
-        (polls[1].revents & (POLLHUP | POLLERR))) {
-      exit(0);
     }
   }
 }
@@ -249,19 +260,24 @@ void restore_terminal() {
 }
 
 bool read_and_write(int in_fd, int out_fd, bool isSending) {
+  char buffer[256];
+
   ssize_t bytes = read(in_fd, buffer, 256);
   if (bytes < 0) {
     handleError("read_and_write (read)", errno);
   }
+  if (bytes == 0) {
+    return false;
+  }
 
-  if (!isSending && log_flag) {
+  if (!isSending && log_flag && bytes != 0) {
     int n;
     char log_prefix[50];
 
-    n = sprintf(log_prefix, "RECEIVED %d bytes: ", strlen(buffer));
+    n = sprintf(log_prefix, "RECEIVED %d bytes: ", bytes);
 
     write(log_fd, log_prefix, n);
-    write(log_fd, buffer, strlen(buffer));
+    write(log_fd, buffer, bytes);
     write(log_fd, "\n", 1);
   }
 
@@ -269,12 +285,25 @@ bool read_and_write(int in_fd, int out_fd, bool isSending) {
   int i;
   bool quit = false;
   for (i = 0; i < bytes; i++) {
-    if (isSending && write (1, buffer + i, 1) < 0) {
+    if (isSending && buffer[i] == 3) {
+      char c[2] = "^c";
+      write(1, c, 2);
+      quit = true;
+    }
+    else if (isSending && buffer[i] == 4) {
+      char c[2] = "^d";
+      write(1, c, 2);
+      quit = true;
+    }
+    else if (isSending && write (1, buffer + i, 1) < 0) {
       handleError("read_and_write (write)", errno);
     }
-    if (isSending && (buffer[i] == 4 || buffer[i] == 3)) {
-      fprintf(stderr, "quit triggered");
-      quit = true;
+    else if (isSending && (buffer[i] == '\n' || buffer[i] == '\r')) {
+      char newline[2] = {'\r', '\n'};
+
+      if (write (1, newline, 2) < 0) {
+        handleError("read_and_write (newline write)", errno);
+      }
     }
 
     // fprintf(stderr, "RECEIVED: %c\r\n", buffer[i]);
@@ -306,19 +335,20 @@ bool read_and_write(int in_fd, int out_fd, bool isSending) {
     if (write (out_fd, buffer + i, 1) < 0) {
       handleError("read_and_write (write)", errno);
     }
-    if ((!isSending && (buffer[i] == 4 || buffer[i] == 3)) || quit) {
+    if (quit) {
+      fprintf(stderr, "quit");
       return false;
     }
   }
 
-  if (isSending && log_flag) {
+  if (isSending && log_flag && bytes != 0) {
     int n;
     char log_prefix[50];
 
-    n = sprintf(log_prefix, "SENT %d bytes: ", strlen(buffer));
+    n = sprintf(log_prefix, "SENT %d bytes: ", bytes);
 
     write(log_fd, log_prefix, n);
-    write(log_fd, buffer, strlen(buffer));
+    write(log_fd, buffer, bytes);
     write(log_fd, "\n", 1);
   }
 

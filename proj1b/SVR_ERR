@@ -1,0 +1,4 @@
+Created socket
+Waiting for clients...
+Accepted client
+Error encountered in adjust_terminal (tcgetattr, original): 

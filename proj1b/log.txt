@@ -1,43 +1,25 @@
-SENT 1 bytes: 
-SENT 1 bytes: a
+SENT 1 bytes: e
+SENT 1 bytes: c
+SENT 1 bytes: h
+SENT 1 bytes: o
+SENT 1 bytes:  
+SENT 1 bytes: \
+SENT 1 bytes: $
+SENT 1 bytes: s
+SENT 1 bytes: h
+SENT 1 bytes: e
+SENT 1 bytes: l
+SENT 1 bytes: l
+SENT 1 bytes: 
+RECEIVED 7 bytes: $shell
+
+SENT 1 bytes: e
 SENT 1 bytes: x
-SENT 1 bytes: ‰
-RECEIVED 17 bytes: ò∑uñ¢q∏/ﬂ6«ß}Ω‚
-RECEIVED 19 bytes: Ñ&ΩoT_ùG8˘%Ÿ⁄UÜ§
-SENT 19 bytes: ècommand not found
+SENT 1 bytes: i
+SENT 1 bytes: t
+SENT 1 bytes:  
+SENT 1 bytes: 7
+SENT 1 bytes: 
+RECEIVED 29 bytes: SHELL EXIT SIGNAL=0 STATUS=7
 
-SENT 19 bytes: "command not found
-
-SENT 19 bytes: lcommand not found
-
-SENT 19 bytes: Écommand not found
-
-SENT 19 bytes: ˚command not found
-
-RECEIVED 19 bytes: æÈ»w¨1RÀƒqXÏy-Iú\d
-
-RECEIVED 21 bytes: ù®è\‡Z≈◊ÿôO ¿*¸P
-±Ô
-SENT 21 bytes: ó: command not found
-
-SENT 21 bytes: ^: command not found
-
-SENT 21 bytes: ö: command not found
-
-SENT 21 bytes: „: command not found
-
-SENT 21 bytes: : command not found
-
-SENT 21 bytes: ñ: command not found
-
-SENT 21 bytes: c: command not found
-
-SENT 21 bytes: |: command not found
-
-SENT 21 bytes: Ú: command not found
-
-RECEIVED 21 bytes: {DËNÄò]Ägâu’œﬁund
-
-RECEIVED 31 bytes: 8üÿí…l¿CƒXóÌ∆Vbw‘gÌ»÷`GOßê≥+¢
-SENT 31 bytes: [177yayaya': command not found
-
+SENT 1 bytes: 

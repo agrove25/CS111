@@ -30,7 +30,6 @@ MCRYPT etd, dtd;
 
 // Shell Stuff
 struct termios original;
-bool activeShell = false;
 char buffer[256];
 
 int toShell[2];     // (rear: child, front: parent -- parent->child)
@@ -48,6 +47,7 @@ bool read_and_write(int in_fd, int out_fd, bool isSending);
 bool shell_read_and_write (int in_fd, int out_fd, bool isSending);
 void restore_terminal();
 void process_shutdown();
+void close_socket();
 void prepareEncryption(char filename[]);
 
 void handleError(char loc[256], int err) {
@@ -149,7 +149,7 @@ void startServer() {
   if (serv_fd == -1) {
     handleError("startServer (declaring socket)", errno);
   }
-  fprintf(stderr, "Created socket\n");
+  fprintf(stderr, "Created socket\r\n");
 
   serv.sin_family = AF_INET;
   serv.sin_addr.s_addr = INADDR_ANY;
@@ -159,7 +159,7 @@ void startServer() {
     handleError("startServer (bind socket)", errno);
 
   listen(serv_fd, 5);
-  fprintf(stderr, "Waiting for clients...\n");
+  fprintf(stderr, "Waiting for clients...\r\n");
 
   // Accepting Conenctions...
   int addr_len = sizeof(cli);
@@ -167,7 +167,9 @@ void startServer() {
   if (cli_fd == -1) {
     handleError("startServer (accepting client)", errno);
   }
-  fprintf(stderr, "Accepted client\n");
+  fprintf(stderr, "Accepted client\r\n");
+
+  atexit(close_socket);
 }
 
 // sets the global var original and changes terminal attributes
@@ -177,14 +179,14 @@ void adjust_terminal() {
 
   result = tcgetattr (STDIN_FILENO, &original);
   if (result < 0) {
-    handleError("adjust_terminal (tcgetattr)", errno);
+    handleError("adjust_terminal (tcgetattr, original)", errno);
   }
 
   atexit(restore_terminal);
 
   result = tcgetattr (STDIN_FILENO, &modified);
   if (result < 0) {
-    handleError("adjust_terminal (tcgetattr)", errno);
+    handleError("adjust_terminal (tcgetattr, modified)", errno);
   }
 
   modified.c_iflag = ISTRIP;
@@ -231,17 +233,8 @@ void activateShell() {
     close(toShell[0]);
     close(fromShell[1]);
 
-    // Server additions
-    close(0);
-    close(1);
-
-    dup(cli_fd);
-    dup(cli_fd);
-
-    close(cli_fd);
-
     // Polling initializtion
-    polls[0].fd = 0;
+    polls[0].fd = cli_fd;
     polls[0].events = POLLIN;
 
     polls[1].fd = fromShell[0];
@@ -266,13 +259,13 @@ void runProcess() {
       // stdout or whether we read from stdin and output into the shell
 
       if (polls[0].revents & POLLIN) {
-        if (!shell_read_and_write(0, toShell[1], false)) {
+        if (!shell_read_and_write(cli_fd, toShell[1], false)) {
           close(toShell[1]);
           exit(0);
         }
       }
       if (polls[1].revents & POLLIN) {
-        if (!read_and_write(fromShell[0], 1, true)) {
+        if (!read_and_write(fromShell[0], cli_fd, true)) {
           close(fromShell[0]);
         }
       }
@@ -293,9 +286,15 @@ bool read_and_write(int in_fd, int out_fd, bool isSending) {
     handleError("read_and_write (read)", errno);
   }
 
+  // fprintf(stderr, buffer);
+
   int i;
   for (i = 0; i < bytes; i++) {
     // fprintf(stderr, "RECEIVED: %c\r\n", buffer[i]);
+
+    if (isSending && buffer[i] == 4) {
+      return false;
+    }
 
     if (encrypt_flag) {
       if (isSending) {
@@ -310,7 +309,7 @@ bool read_and_write(int in_fd, int out_fd, bool isSending) {
       }
     }
 
-    if (buffer[i] == 4) {
+    if (!isSending && buffer[i] == 4) {
       return false;
     }
     /*
@@ -396,7 +395,7 @@ void process_shutdown() {
         (polls[1].revents & (POLLHUP | POLLERR))) {
       break;
     }
-    if (!read_and_write(fromShell[0], 1, true)) {
+    if (!read_and_write(fromShell[0], cli_fd, true)) {
       close(fromShell[0]);
       break;
     }
@@ -410,10 +409,23 @@ void process_shutdown() {
   while (waitpid(process_id, &status, WNOHANG) == 0) {
 
   }
-  fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d\n",
-         (status & 0x007f), (status & 0xff00) >> 8);
 
+  /*
+  fprintf(stderr, "SHELL EXIT SIGNAL=%d STATUS=%d\r\n",
+         (status & 0x007f), (status & 0xff00) >> 8);
+  */
+
+  char output[100];
+  int n = sprintf(output, "SHELL EXIT SIGNAL=%d STATUS=%d\n",
+                 (status & 0x007f), (status & 0xff00) >> 8);
+
+  write(2, output, n);
+}
+
+void close_socket() {
+  fprintf(stderr, "Sockets closed.\r\n");
   close(cli_fd);
+  close(serv_fd);
 }
 
 // helper function that is called at the end by atexit in adjust
@@ -426,7 +438,7 @@ void restore_terminal() {
 int main(int argc, char* argv[]) {
   processArguments(argc, argv);
   startServer();
-  adjust_terminal();
+  //adjust_terminal();
   activateShell();
   runProcess();
   exit(0);
