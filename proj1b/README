@@ -1,3 +1,42 @@
 NAME: Andrew Grove
 EMAIL: koeswantoandrew@gmail.com
 ID: 304785991
+
+server.c:
+  the source code that will go onto create ./lab1b-server. This file
+  creates a server that creates a socket for the client to connect to
+  in a given port number. It then takes the messages that the client sends
+  and redirects it the pipes and into the shell (in another process). The
+  output of that process is that sent to the server, and then redirected
+  into the client. It is also able to encrypt information going from and
+  decrypt information going to the server (if paired with the client's
+  --encrypt command).
+
+  Supports two options:
+    --port=portno (mandatory)
+    --encrypt=keyfile
+
+client.c:
+  the source code that will go onto create ./lab1b-client. This file creates
+  a client that connects to the previously mentioned server. It then
+  initializes non-canonical mode, and sends all input into the server.
+  Through the polling system, it'll find when the server has sent data,
+  and will take that output and display it in stdout. It is also able
+  to log the data that is sent and received from the server, and also
+  can encrypt information going to and decrypt information
+  from the server (if paired with the server.c's --encrypt command).
+
+  Supports three options:
+    --port=portno (mandatory)
+    --log=filename
+    --encrypt=keyfile
+
+my.key:
+  this is a sample key that can be used for decryption and encryption.
+  It just has some random text in it to use as a seed.
+
+Makefile:
+  This file creates the necessary executables if ran in the default state
+  (make). It also supports two more options: clean (which erases all
+  extraneous data from the directory) and dist (which creates the tar file
+  that is needed to upload).
