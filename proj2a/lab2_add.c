@@ -109,7 +109,7 @@ void runThreads() {
   double avgTime = totTime / (double) ops;
 
   printf("%s,%d,%d,%d,%d,%f,%d\n", description, n_threads, n_iterations,
-          ops, totTime, avgTime, 0);
+          ops, totTime, avgTime, counter);
 
   free(threads);
 }

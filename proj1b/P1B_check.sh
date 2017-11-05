@@ -187,7 +187,7 @@ fi
 # function to check for orphaned client or server
 #
 orphan_check() {
-	ps -ae > ORPHANS.OUT
+	ps -u > ORPHANS.OUT
 	for p in $CLIENT $SERVER
 	do
 		grep $p ORPHANS.OUT > /dev/null
@@ -203,7 +203,7 @@ orphan_check() {
 
 # run a trivial shell session and see if we get plausible shell output
 echo "... testing trivial shell session"
-let PORT=6661
+let PORT=25535
 ./$SERVER --port=$PORT > SVR_OUT 2> SVR_ERR &
 ./$PTY_TEST ./$CLIENT --port=$PORT --log=LOG_1 > STDOUT 2> STDERR <<-EOF
 	PAUSE 1
