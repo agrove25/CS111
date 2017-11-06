@@ -140,11 +140,6 @@ void runThreads() {
     handleError("runThreads (init end clock)", errno);
   }
 
-  if (SortedList_length(list) != 0) {
-    fprintf(stderr, "invalidated List\n");
-    exit(2);
-  }
-
   long long totTime = 1000000000 * (end.tv_sec - start.tv_sec)
     + (end.tv_nsec - start.tv_nsec);
 
@@ -207,6 +202,11 @@ void simulate() {
       fprintf(stderr, "invalidated List\n");
       exit(2);
     }
+  }
+
+  if (SortedList_length(list) != 0) {
+    fprintf(stderr, "invalidated List\n");
+    exit(2);
   }
 }
 
