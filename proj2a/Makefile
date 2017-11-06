@@ -7,10 +7,10 @@ default:
 	gcc -w -Wall -Wextra -o lab2_list SortedList.c lab2_list.c -pthread
 
 tests: default
-	./lab2_add --iterations=10 --threads=10 > lab2_add.csv
-	./lab2_add --iterations=100 --threads=10 >> lab2_add.csv
-	./lab2_add --iterations=1000 --threads=10 >> lab2_add.csv
-	./lab2_add --iterations=10000 --threads=10 >> lab2_add.csv
+	./lab2_add --iterations=10 --threads=1 > lab2_add.csv
+	./lab2_add --iterations=100 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=1000 --threads=1 >> lab2_add.csv
+	./lab2_add --iterations=10000 --threads=1 >> lab2_add.csv
 
 	# lab2_add-1.png
 	./lab2_add --iterations=10 --threads=2 --yield >> lab2_add.csv
