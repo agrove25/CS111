@@ -4,9 +4,10 @@
 
 default:
 	gcc -w -Wall -Wextra -o lab2_add lab2_add.c -pthread
-	gcc -w -Wall -Wextra -o lab2-list SortedList.c lab2_list.c -pthread
+	gcc -w -Wall -Wextra -o lab2_list SortedList.c lab2_list.c -pthread
 
 tests: default
+	./sample.sh
 	-./lab2_add --iterations=10 --threads=1 > lab2_add.csv
 	-./lab2_add --iterations=100 --threads=1 >> lab2_add.csv
 	-./lab2_add --iterations=1000 --threads=1 >> lab2_add.csv

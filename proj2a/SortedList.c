@@ -1,17 +1,23 @@
 #include "SortedList.h"
 #include <pthread.h>
 #include <string.h>
+#include <stdio.h>
 
 void SortedList_insert(SortedList_t *list, SortedListElement_t *element) {
   if (list == NULL || element == NULL)
     return;
 
+  int count = 0;
   SortedListElement_t *curr = list->next;
-  while (curr != list) {
+  while (curr != list && curr->next != curr) {
+    if (count > 1000000) {
+      return;
+    }
     if (strcmp(element->key, curr->key) < 0) {
       break;
     }
 
+    count++;
     curr = curr->next;
   }
 
@@ -46,9 +52,11 @@ SortedListElement_t *SortedList_lookup(SortedList_t *list, const char *key) {
   if (list == NULL || key == NULL)
     return NULL;
 
+  int count = 0;
   SortedListElement_t *curr = list->next;
 
   while (curr != list) {
+    if (count > 1000000) return NULL;
     if (strcmp(curr->key, key) == 0) {
       return curr;
     }
@@ -57,6 +65,7 @@ SortedListElement_t *SortedList_lookup(SortedList_t *list, const char *key) {
       pthread_yield();
     }
 
+    count++;
     curr = curr->next;
   }
 
@@ -71,6 +80,8 @@ int SortedList_length(SortedList_t *list) {
   int count = 0;
 
   while (curr != list) {
+    if (count > 1000000) return -1;
+
     count++;
     if (opt_yield & LOOKUP_YIELD) {
       pthread_yield();
