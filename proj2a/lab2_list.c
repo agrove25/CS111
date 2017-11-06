@@ -154,8 +154,8 @@ void runThreads() {
   int ops = n_threads * n_iterations * 3;
   double avgTime = totTime / (double) ops;
 
-  printf("%s,%d,%d,%d,%d,%f,%d\n", description, n_threads, n_iterations,
-          ops, totTime, avgTime, 0);
+  printf("%s,%d,%d,%d,%d,%f\n", description, n_threads, n_iterations,
+          ops, totTime, avgTime);
 
   free(threads);
 }
