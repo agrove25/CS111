@@ -1,7 +1,0 @@
-x# NAME: Andrew Grove
-# EMAIL: koeswantoandrew@gmail.com
-# ID: 304785991
-
-default:
-	gcc -w -Wall -Wextra -o lab2_add lab2_add.c -pthread
-	gcc -w -Wall -Wextra -o lab2_list SortedList.c lab2_list.c -pthread
