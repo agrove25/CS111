@@ -144,12 +144,13 @@ void runThreads() {
     + (end.tv_nsec - start.tv_nsec);
 
   char description[50] = "list-";
-  if (opt_yield == 0) sprintf(description, "%s%s", description, "none-");
+  if (opt_yield == 0) sprintf(description, "%s%s", description, "none");
   else {
     if (opt_yield & 0x01) sprintf(description, "%s%c", description, 'i');
     if (opt_yield & 0x02) sprintf(description, "%s%c", description, 'd');
     if (opt_yield & 0x04) sprintf(description, "%s%c", description, 'l');
   }
+  sprintf(description, "%s%c", description, '-');
 
   if (opt_sync == 'n') sprintf(description, "%s%s", description, "none");
   else sprintf(description, "%s%c", description, opt_sync);
@@ -157,7 +158,7 @@ void runThreads() {
   int ops = n_threads * n_iterations * 3;
   double avgTime = totTime / (double) ops;
 
-  printf("%s,%d,%d,%d,%d,%f\n", description, n_threads, n_iterations,
+  printf("%s,%d,%d,1,%d,%d,%f\n", description, n_threads, n_iterations,
           ops, totTime, avgTime);
 
   free(threads);
