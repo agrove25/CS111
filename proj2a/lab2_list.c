@@ -13,6 +13,7 @@
 #include <time.h>
 #include <pthread.h>
 #include "SortedList.h"
+#include <signal.h>
 
 int n_threads = 1;
 int n_iterations = 1;
@@ -35,6 +36,11 @@ void handleError(char loc[256], int err) {
   fprintf(stderr, strerror(err));
 
   exit(1);
+}
+
+void signal_handler() {
+  fprintf(stderr, "Encountered Segmentation Fault.");
+  exit(2);
 }
 
 void processArguments(int argc, char* argv[]) {
@@ -73,6 +79,8 @@ void processArguments(int argc, char* argv[]) {
     case 's': break;
     default: handleError("processArguments (invalid sync option)", errno);
   }
+
+  signal(SIGSEGV, signal_handler);
 }
 
 void setYieldModes(char* modes) {
