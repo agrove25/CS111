@@ -11,15 +11,15 @@ graphs:
 	gnuplot lab2_list.gp
 
 clean:
-	rm lab2_add lab2_list *.gp *.csv *.tar.gz
+	rm lab2_add lab2_list *.tar.gz
 
-dist: default
+dist: default tests graphs
 	tar -czvf lab2a-304785991.tar.gz Makefile lab2_add.c lab2_list.c \
 	SortedList.c SortedList.h lab2_add.gp lab2_list.gp *.png *.csv README
 
 
 tests: default
-	./lab2_add --threads=2  --iterations=100    >> lab2_add.csv
+	./lab2_add --threads=2  --iterations=100    > lab2_add.csv
 	./lab2_add --threads=2  --iterations=1000   >> lab2_add.csv
 	./lab2_add --threads=2  --iterations=10000  >> lab2_add.csv
 	./lab2_add --threads=2  --iterations=100000 >> lab2_add.csv
@@ -130,7 +130,7 @@ tests: default
 	./lab2_add --threads=12 --iterations=10000 --sync=s >> lab2_add.csv
 
 
-	./lab2_list --threads=1  --iterations=10	      >> lab2_list.csv
+	./lab2_list --threads=1  --iterations=10	      > lab2_list.csv
 	./lab2_list --threads=1  --iterations=100	      >> lab2_list.csv
 	./lab2_list --threads=1  --iterations=1000	      >> lab2_list.csv
 	./lab2_list --threads=1  --iterations=10000	      >> lab2_list.csv

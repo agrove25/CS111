@@ -155,10 +155,10 @@ void runThreads() {
   if (opt_sync == 'n') sprintf(description, "%s%s", description, "none");
   else sprintf(description, "%s%c", description, opt_sync);
 
-  int ops = n_threads * n_iterations * 3;
-  double avgTime = totTime / (double) ops;
+  long long ops = n_threads * n_iterations * 3;
+  long long avgTime = totTime / (double) ops;
 
-  printf("%s,%d,%d,1,%d,%d,%f\n", description, n_threads, n_iterations,
+  printf("%s,%d,%d,1,%d,%d,%d\n", description, n_threads, n_iterations,
           ops, totTime, avgTime);
 
   free(threads);

@@ -106,9 +106,9 @@ void runThreads() {
   int ops = n_threads * n_iterations * 2;
   long long totTime = 1000000000 * (end.tv_sec - start.tv_sec)
     + (end.tv_nsec - start.tv_nsec);
-  double avgTime = totTime / (double) ops;
+  long long avgTime = totTime / ops;
 
-  printf("%s,%d,%d,%d,%d,%f,%d\n", description, n_threads, n_iterations,
+  printf("%s,%d,%d,%d,%d,%d,%d\n", description, n_threads, n_iterations,
           ops, totTime, avgTime, counter);
 
   free(threads);
