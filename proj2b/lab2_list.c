@@ -65,7 +65,7 @@ void processArguments(int argc, char* argv[]) {
         case 't': n_threads = atoi(optarg); break;
         case 'i': n_iterations = atoi(optarg); break;
         case 'y': setYieldModes(optarg); break;
-        case 's': opt_sync = optarg[0]; initialize_syncs(); break;
+        case 's': opt_sync = optarg[0]; break;
         case 'l': n_lists = atoi(optarg); break;
 
         default:  fprintf(stderr, "Usage : server [OPTION] = [ARGUMENT]\n");
@@ -79,6 +79,7 @@ void processArguments(int argc, char* argv[]) {
     }
   }
 
+  initialize_syncs();
   signal(SIGSEGV, signal_handler);
 }
 
@@ -101,13 +102,17 @@ void initialize_syncs() {
     }
 
     for (int i = 0; i < n_lists; i++) {
-      pthread_mutex_init(mutex + i, NULL);
+      pthread_mutex_init(&mutex[i], NULL);
     }
   }
   else if (opt_sync == 's') {
-    exclusion = malloc(n_lists * sizeof(pthread_mutex_t));
+    exclusion = malloc(n_lists * sizeof(int));
     if (exclusion == NULL) {
       handleError("initialize_syncs (creating exclusions)", errno);
+    }
+
+    for (int i = 0; i < n_lists; i++) {
+      exclusion[i] = 0;
     }
   }
 }
@@ -277,7 +282,7 @@ void lock(int id) {
 void unlock(int id) {
   switch(opt_sync) {
     case 'n': break;
-    case 'm': pthread_mutex_unlock(mutex + id);
+    case 'm': pthread_mutex_unlock(&mutex[id]);
               break;
 
     case 's': __sync_lock_release(exclusion + id);

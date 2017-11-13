@@ -165,6 +165,9 @@ void initialize_locks()
 		{
 			pthread_mutex_init(&mutex_arr[i], NULL);
 		}
+
+		//pthread_mutex_lock(&mutex_arr[1]);
+		//pthread_mutex_unlock(&mutex_arr[1]);
 	} else if(sync_arg == 's')
 	{
 		spin_arr = malloc(num_lists * sizeof(int));
@@ -232,6 +235,8 @@ int main(int argc, char **argv)
 				if(strlen(optarg) == 1 && optarg[0] == 'm') { sync_arg = 'm'; }
 				else if(strlen(optarg) == 1 && optarg[0] == 's') { sync_arg = 's'; }
 				else { fprintf(stderr, "Incorrect argument for sync. m = mutex; s = spin-lock\n"); exit(1); }
+
+
 				break;
 				//Lists argument
 			case 'l':
@@ -242,7 +247,7 @@ int main(int argc, char **argv)
 				exit(1);
 		}
 	}
-
+initialize_locks();
 	//Total number of runs for the threads to make through the list
 	total_runs = num_threads * num_iters;
 
@@ -255,7 +260,6 @@ int main(int argc, char **argv)
 	generate_keys();
 
 	//Initialize the locks for the various lists
-	initialize_locks();
 
 	//Create an array of threads
 	pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
