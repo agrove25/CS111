@@ -134,6 +134,6 @@ tests:
 	@./lab2_list --threads=12 --iterations=1000 --sync=s --lists=16   >>  lab2b_list.csv
 
 profile:
-	CPUPROFILE=raw.perf @./lab2_list --iterations=1000 --threads=12 --sync=s
+	CPUPROFILE=raw.perf ./lab2_list --iterations=1000 --threads=12 --sync=s
 	pprof --text lab2_list raw.perf > profile.out
 	pprof --list=listOps lab2_list raw.perf >> profile.out
