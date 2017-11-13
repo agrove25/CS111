@@ -6,7 +6,7 @@ default:
 	gcc -L -g -w -Wall -Wextra -o lab2_list SortedList.c lab2_list.c -pthread -lprofiler
 
 clean:
-	rm lab2_list *.tar.gz
+	rm lab2_list *.tar.gz *.perf
 
 dist: default tests graphs profile
 	tar -czvf lab2b-304785991.tar.gz Makefile lab2_list.c \
