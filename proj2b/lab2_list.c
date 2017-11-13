@@ -217,41 +217,46 @@ void runThreads() {
 void operate(void* id_arg) {
   int* id = (int*) id_arg;
 
-  for (int i = *id; i < n_iterations; i += n_threads) {
-    lock(sublists[i]);
-    SortedList_insert(&(lists[sublists[i]]), &(elements[i]));
-    unlock(sublists[i]);
-  }
+  // in order to keep consistensy (having to build the full list
+  // n_thread times.
 
-  int length = 0;
-  for (int i = 0; i < n_lists; i++) {
-    lock(i);
-    int sub_length = SortedList_length(lists + i);
-    if (sub_length == -1) {
-      fprintf(stderr, "invalidated List\n");
-      exit(2);
+  for (int j = 0; j < n_threads; j++) {
+    for (int i = *id; i < n_iterations; i += n_threads) {
+      lock(sublists[i]);
+      SortedList_insert(&(lists[sublists[i]]), &(elements[i]));
+      unlock(sublists[i]);
     }
 
-    length += sub_length;
-    unlock(i);
-  }
+    int length = 0;
+    for (int i = 0; i < n_lists; i++) {
+      lock(i);
+      int sub_length = SortedList_length(lists + i);
+      if (sub_length == -1) {
+        fprintf(stderr, "invalidated List\n");
+        exit(2);
+      }
 
-  SortedListElement_t* temp;
-  for (int i = *id; i < n_iterations; i += n_threads) {
-    lock(sublists[i]);
-
-    temp = SortedList_lookup(lists + sublists[i], elements[i].key);
-    if (temp == NULL) {
-      fprintf(stderr, "invalidated List\n");
-      exit(2);
+      length += sub_length;
+      unlock(i);
     }
 
-    if (SortedList_delete(temp) == 1) {
-      fprintf(stderr, "invalidated List\n");
-      exit(2);
-    }
+    SortedListElement_t* temp;
+    for (int i = *id; i < n_iterations; i += n_threads) {
+      lock(sublists[i]);
 
-    unlock(sublists[i]);
+      temp = SortedList_lookup(lists + sublists[i], elements[i].key);
+      if (temp == NULL) {
+        fprintf(stderr, "invalidated List\n");
+        exit(2);
+      }
+
+      if (SortedList_delete(temp) == 1) {
+        fprintf(stderr, "invalidated List\n");
+        exit(2);
+      }
+
+      unlock(sublists[i]);
+    }
   }
 }
 
