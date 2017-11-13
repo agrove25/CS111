@@ -5,8 +5,14 @@
 default:
 	gcc -L -g -w -Wall -Wextra -o lab2_list SortedList.c lab2_list.c -pthread -lprofiler
 
+clean:
+	rm lab2_list *.tar.gz
+
+dist: default tests graphs profile
+	tar -czvf lab2b-304785991.tar.gz Makefile lab2_list.c \
+	SortedList.c SortedList.h lab2_list.gp *.png *.csv profile.out README
+
 tests: default
-	# for 1 and 2.png
 	./lab2_list --threads=1  --iterations=1000 --sync=m  > lab2_list.csv
 	./lab2_list --threads=2  --iterations=1000 --sync=m >> lab2_list.csv
 	./lab2_list --threads=4  --iterations=1000 --sync=m >> lab2_list.csv
