@@ -3,8 +3,7 @@
 # ID: 304785991
 
 default:
-	gcc -w -Wall -Wextra -o lab2_list SortedList.c lab2_list.c -pthread
-	gcc -w -Wall -Wextra -o lab2_list2 SortedList.c lab2_list2.c -pthread
+	gcc -L -g -w -Wall -Wextra -o lab2_list SortedList.c lab2_list.c -pthread -lprofiler
 
 tests: default
 	# for 1 and 2.png
@@ -120,3 +119,8 @@ tests: default
 	./lab2_list --threads=4  --iterations=1000 --sync=s --lists=16   >> lab2_list.csv
 	./lab2_list --threads=8  --iterations=1000 --sync=s --lists=16   >> lab2_list.csv
 	./lab2_list --threads=12 --iterations=1000 --sync=s --lists=16   >> lab2_list.csv
+
+profile: default
+	CPUPROFILE=raw.perf ./lab2_list --iterations=1000 --threads=12 --sync=s
+	pprof --text lab2_list raw.perf > profile.out
+	pprof --list=listOps lab2_list raw.perf >> profile.out

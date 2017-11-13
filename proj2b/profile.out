@@ -1,0 +1,8 @@
+Total: 86 samples
+      70  81.4%  81.4%       70  81.4% lock
+       8   9.3%  90.7%        8   9.3% __strcmp_sse42
+       5   5.8%  96.5%        7   8.1% SortedList_lookup
+       3   3.5% 100.0%        9  10.5% SortedList_insert
+       0   0.0% 100.0%       86 100.0% __clone
+       0   0.0% 100.0%       86 100.0% operate
+       0   0.0% 100.0%       86 100.0% start_thread
