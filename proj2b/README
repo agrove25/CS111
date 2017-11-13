@@ -4,29 +4,6 @@ ID: 304785991
 
 -------------- Description of the Files ---------------------
 
-lab2_add.c
-  the source code that will generate the lab2_add executable. This
-  creates a program that accepts four arguments:
-
-  --threads=number-of-threads
-  --iterations=number-of-iterations
-  --yield
-  --sync=[m, c, s]
-
-  This program will, for an inputted number of threads (default 1),
-  do an inputted number of operations (also default 1). This operation
-  is to use a global counter (which is shared between all threads) and
-  add one, and subtract one. Using the yield option will trigger
-  yield in the middle of the critical periods (in an attempt to
-  cause issues). Using a sync option will use a type of synchronization
-  to stop these data races from occurring. M will use a mutex, C will
-  use atomic updates (compare-and-swap), and s will use a spin lock.
-  It will also output the results in a manner that can be used
-  in the following gnuplots. The output is as follows:
-
-  description, nThreads, nIterations, totalOps, totalTime,
-    timePerOp, endTotalofCounter
-
 lab2_list.c:
   The source code that will generate the lab2_list executable. This
   creates a program that accepts four arguments:
@@ -35,6 +12,7 @@ lab2_list.c:
   --iterations=number-of-iterations
   --yield=[i, d, l] (or any combination of the three)
   --sync=[m, s]
+  --lists=number-of-lists
 
   This program will, for an inputted number of threads (default 1),
   do an inputted number of operations (also default 1). From a
@@ -44,11 +22,15 @@ lab2_list.c:
   critical periods to yield in, i.e. the insert, delete, or lookup.
   The sync options specify which synchronization function to use
   in order to prevent data races, m being a mutex and s being a spin
-  lock. It will then output the results in a manner that can be
+  lock. The list options will split the master list into a number
+  of sublists, in order to create more fine locks (allowing
+  for more threads to run at the same time).
+
+  It will then output the results in a manner that can be
   used in the following gnuplots. The output is as follows:
 
   description, nThreads, nIterations, number-of-Lists, totalOps,
-    totalTime, timePerOp
+    totalTime, timePerOp, avgWaitTime
 
 SortedList.h:
   the given header functions, which specify the interface needed
@@ -65,97 +47,74 @@ extraneous data from the directory), dist (which creates the tar file
 that is needed to upload), tests (which runs all the tests and inserts
 into the csv file), and graph (which creates the gnuplot).
 
-lab2_add.csv
 lab2_list.csv
   the results of the tests (used to make the graphs). These tests
   are found in the Makefile (make tests).
 
 lab2_add.gp
 lab2_list.gp
-  a given script that creates the gnuplot
+  a given script that creates the gnuplot (in accordance with the spec)
 
 *.png
   all the graphs that were generated, shows a multitude of things
   that are outlined in the spec (and the title of the graph).
 
+profile.out
+  shows a breakdown of the methods that take up the most amount
+  of time (for the spin-lock variant of the program)
+
+  NOTE: due to issues in the list argument for the gperftools (pprof),
+    as outlined in Piazza, I was unable to complete the instruction
+    breakdown.
+
 --------------- Answers to the Questions -----------------
 
-Question 2.1.1
-  it takes many iterations before errors are seen because the
-  system has to break in a certain way. Basically, as long as a
-  thread does not yield while in the middle of the retrieval of
-  counter, the adding one of counter, and the assigning of counter
-  to this value, there is not a problem. Because this is very specific,
-  it rarely occurs, and as such we need a large number of iterations
-  for this rare even to occur consistently.
+Question 2.3.1
+  In the 1, 2 thread case, most of the time is being spent on the
+  list operations (insert, lookup, length, and delete), because
+  the low number of threads makes it so that context switches and
+  being locked out occurs rarely.
 
-  Like we said before, issues only occur rarely, and as such
-  if the number of iterations is small, then there is a fair to good
-  chance that these issues won't occur during the time the program
-  is running.
+  In high thread spin-lock tests, acquiring the lock takes the longest
+  amount of time. This is because with the large number of threads,
+  it is very likely that any given thread will be locked out of working
+  on that list, which also makes any context switches useless. For
+  example, if thread 1 is working on a list, and yields, threads 2-n
+  must then spin, do nothing, then switch out.
 
-Question 2.1.2
-  the yield runs are much slower due to the OS having to do
-  context switches, which is a large amount of overhead (replacing
-  registers, saving states to a TCB and all that).
+  The same goes for mutex tests, where although it does not spin,
+  it still must wait for the other threads to finish whatever they
+  are doing.
 
-  The additional time is going to the OS.
+Question 2.3.2
+  The locking mechanism takes the longest time for the spin-lock
+  version (i.e. waiting to be able to acquire the lock).
 
-  No, we cannot get valid per-operation times, as instead of
-  having the time per operation, like the name suggests, we will
-  get the time per operation + the amount of time it takes for
-  the system to yield, which can vary.
+  This operation becomes the most expensive because most of the time
+  the CPU is doing nothing productive, thereby making it take longer
+  to finish up the entire task (see the example above).
 
-Question 2.1.3
-  The average cost per operation is higher because of the overhead
-  involved with making the threads and first running them. This
-  fixed cost becomes more finely amortized when we have a
-  large number of iterations.
+Question 2.3.3
+  With more threads, there are more things that are waiting on a
+  single lock, and as such it will take much longer for any single
+  one to get it.
 
-  We can find the correct cost by running this on an extremely large
-  number of iterations. While it will take a long time for it to finish,
-  this average cost should be more accurate.
+  The longer it has to wait, the more the entire system has to wait.
+  As such, an increase in wait time is naturally an increase in
+  completion time per operation.
 
-Question 2.1.4
-  These options all perform similarly for low numbers of threads because
-  the locks themselves don't actually do anything. Nothing has to
-  wait for each other, so besides a small amount of overhead,
-  the synchronization time is the same, i.e. almost nonexistant.
+  This is because the wait time is waiting time per thread. If one
+  thread is working on the list, (n-1) threads are waiting,
+  and therefore adding to the total wait time.
 
-  They slow down as the thread number rises as the sync options
-  actually start to do things, as many situations will occur
-  when a thread has to wait for the other thread to get out of
-  the critical area.
+Question 2.3.4
+  More lists means more locks, which allows multiple threads to
+  work on the same big list and not having to wait for each other.
 
-Question 2.2.1
-  In part 1, we can see a decrease in per-operation time, while
-  in part 2 we can see it increases. This can be explained by
-  realizing that lookup, insert, and destroy are more than O(n), and as
-  such cannot be encapsulated as simply as 3*iterations. Because
-  of this fact, it'll take longer the more iterations there are.
+  It should continue increasing, to a point. If the number of lists
+  is so large that no threads are waiting for each other, then
+  increasing the number of lists will do nothing.
 
-  The first curve looks like that for the reasons above (the initial
-  decrease is due to amortization of the fixed cost of initializing
-  threads). The second curve takes into account the greater than
-  O(n) operations, and as such looks similar to that of Lab1, which
-  is closer to the "true" per-operation costs.
-
-  The relative rates of the first curve (List, raw), is a much
-  smaller decrease than that of the others (List, /4 and Add). This
-  is due to the amortization effect being partially offset by the
-  time lost due to the increasing time it takes to insert, delete,
-  and lookup.
-
-Question 2.2.2
-  The general shape of the two curves are generally increasing,
-  although there is a difference in both their relative increases.
-  They are generally increasing due to the fact that when the number
-  of threads increases, more threads will have to spend their
-  time waiting for the other to exit the critical period.
-
-  While the mutex starts out slower (due to the locking overhead),
-  it does not increase nearly as fast, and will end up being faster
-  than spin locks when it encounters a large number of threads). This
-  is because the spin lock takes a longer amount of time spinning,
-  wasting CPU time by doing nothing, until it yields back to the
-  thread that is inside the critical period at that time.
+  No. This is because multiple CPUs can now work on the operations
+  that are described, instead of being limited to one thread with one
+  CPU.

@@ -29,7 +29,7 @@ int* sublists;
 pthread_mutex_t* mutex;
 int* exclusion;
 
-long long waitTime = 0;
+long long* waitTime;
 
 void operate();
 
@@ -80,6 +80,11 @@ void processArguments(int argc, char* argv[]) {
   }
 
   initialize_syncs();
+
+  waitTime = malloc(n_threads * sizeof(long long));
+  for (int i = 0; i < n_threads; i++)
+    waitTime[i] = 0;
+
   signal(SIGSEGV, signal_handler);
 }
 
@@ -205,8 +210,13 @@ void runThreads() {
   long long ops = n_threads * n_iterations * 3;
   long long avgTime = totTime / ops;
 
-  if (opt_sync == 'n') waitTime = 0;
-  long long avgWaitTime = waitTime / ops;
+  long long totWaitTime = 0;
+  if (opt_sync != 'n') {
+    for (int i = 0; i < n_threads; i++) {
+      totWaitTime += waitTime[i];
+    }
+  }
+  long long avgWaitTime = totWaitTime / ops;
 
   printf("%s,%d,%d,%d,%d,%d,%d,%d\n", description, n_threads, n_iterations,
           n_lists, ops, totTime, avgTime, avgWaitTime);
@@ -222,14 +232,14 @@ void operate(void* id_arg) {
 
   for (int j = 0; j < n_threads; j++) {
     for (int i = *id; i < n_iterations; i += n_threads) {
-      lock(sublists[i]);
+      lock(sublists[i], id);
       SortedList_insert(&(lists[sublists[i]]), &(elements[i]));
       unlock(sublists[i]);
     }
 
     int length = 0;
     for (int i = 0; i < n_lists; i++) {
-      lock(i);
+      lock(i, id);
       int sub_length = SortedList_length(lists + i);
       if (sub_length == -1) {
         fprintf(stderr, "invalidated List\n");
@@ -242,7 +252,7 @@ void operate(void* id_arg) {
 
     SortedListElement_t* temp;
     for (int i = *id; i < n_iterations; i += n_threads) {
-      lock(sublists[i]);
+      lock(sublists[i], id);
 
       temp = SortedList_lookup(lists + sublists[i], elements[i].key);
       if (temp == NULL) {
@@ -260,7 +270,7 @@ void operate(void* id_arg) {
   }
 }
 
-void lock(int id) {
+void lock(int id, int* tid) {
   struct timespec start, end;
 
   if (clock_gettime(CLOCK_MONOTONIC, &start) < 0) {
@@ -280,7 +290,7 @@ void lock(int id) {
     handleError("runThreads (init end clock)", errno);
   }
 
-  waitTime += 1000000000 * (end.tv_sec - start.tv_sec)
+  waitTime[*tid] += 1000000000 * (end.tv_sec - start.tv_sec)
     + (end.tv_nsec - start.tv_nsec);
 }
 
