@@ -12,8 +12,15 @@ dist: default tests graphs profile
 	tar -czvf lab2b-304785991.tar.gz Makefile lab2_list.c \
 	SortedList.c SortedList.h lab2_list.gp *.png *.csv profile.out README
 
-tests: default
-	./lab2_list --threads=1  --iterations=1000 --sync=m  > lab2_list.csv
+graphs:
+	gnuplot lab2_list.gp
+
+tests:
+	echo "NAME: Andrew Grove" > lab2_list.csv
+	echo "EMAIL: koeswantoandrew@gmail.com" >> lab2_list.csv
+	echo "ID: 304785991" >> lab2_list.csv
+
+	./lab2_list --threads=1  --iterations=1000 --sync=m >> lab2_list.csv
 	./lab2_list --threads=2  --iterations=1000 --sync=m >> lab2_list.csv
 	./lab2_list --threads=4  --iterations=1000 --sync=m >> lab2_list.csv
 	./lab2_list --threads=8  --iterations=1000 --sync=m >> lab2_list.csv
@@ -126,7 +133,7 @@ tests: default
 	./lab2_list --threads=8  --iterations=1000 --sync=s --lists=16   >> lab2_list.csv
 	./lab2_list --threads=12 --iterations=1000 --sync=s --lists=16   >> lab2_list.csv
 
-profile: default
+profile: 
 	CPUPROFILE=raw.perf ./lab2_list --iterations=1000 --threads=12 --sync=s
 	pprof --text lab2_list raw.perf > profile.out
 	pprof --list=listOps lab2_list raw.perf >> profile.out
