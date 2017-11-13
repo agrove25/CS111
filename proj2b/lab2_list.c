@@ -29,6 +29,8 @@ int* sublists;
 pthread_mutex_t* mutex;
 int* exclusion;
 
+long long waitTime = 0;
+
 void operate();
 
 void handleError(char loc[256], int err) {
@@ -196,10 +198,13 @@ void runThreads() {
   else sprintf(description, "%s%c", description, opt_sync);
 
   long long ops = n_threads * n_iterations * 3;
-  long long avgTime = totTime / (double) ops;
+  long long avgTime = totTime / ops;
 
-  printf("%s,%d,%d,%d,%d,%d,%d\n", description, n_threads, n_iterations,
-          n_lists, ops, totTime, avgTime);
+  if (opt_sync == 'n') waitTime = 0;
+  long long avgWaitTime = waitTime / ops;
+
+  printf("%s,%d,%d,%d,%d,%d,%d,%d\n", description, n_threads, n_iterations,
+          n_lists, ops, totTime, avgTime, avgWaitTime);
 
   free(threads);
 }
@@ -246,6 +251,12 @@ void operate(void* id_arg) {
 }
 
 void lock(int id) {
+  struct timespec start, end;
+
+  if (clock_gettime(CLOCK_MONOTONIC, &start) < 0) {
+    handleError("runThreads (init start clock)", errno);
+  }
+
   switch(opt_sync) {
     case 'n': break;
     case 'm': pthread_mutex_lock(&(mutex[id]));
@@ -254,6 +265,13 @@ void lock(int id) {
     case 's': while(__sync_lock_test_and_set(&exclusion[id], 1));
               break;
   }
+
+  if (clock_gettime(CLOCK_MONOTONIC, &end) < 0) {
+    handleError("runThreads (init end clock)", errno);
+  }
+
+  waitTime += 1000000000 * (end.tv_sec - start.tv_sec)
+    + (end.tv_nsec - start.tv_nsec);
 }
 
 void unlock(int id) {
