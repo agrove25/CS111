@@ -3,4 +3,5 @@
 # ID: 304785991
 
 default:
-	gcc -lmraa -w -Wall -Wextra -o lab4b lab4b.c
+	gcc -lmraa -lm -w -Wall -Wextra -o lab4b lab4b.c
+

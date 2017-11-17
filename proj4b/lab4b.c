@@ -16,6 +16,8 @@
 
 #include <mraa.h>
 #include <signal.h>
+#include <time.h>
+#include <fcntl.h>
 
 // options
 bool running = true;
@@ -29,6 +31,7 @@ mraa_aio_context tempSensor;
 mraa_gpio_context button;
 
 void buttonPress();
+void setupLogging();
 
 void handleError(char loc[256], int err) {
   fprintf(stderr, "Error encountered in ");
@@ -50,20 +53,36 @@ void processArguments(int argc, char* argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ( (opt = getopt_long(argc, argv, "s:p:", long_options, NULL)) != -1 ) {
+  while ( (opt = getopt_long(argc, argv, "s:p:l:", long_options, NULL)) != 255 ) {
+    fprintf(stderr, "%d", opt);
+
     switch(opt) {
         case 's': scale = optarg[0]; break;
         case 'p': period = atoi(optarg); break;
-        case 'l': logFile = optarg; break;
+        case 'l': logFile = optarg; setupLogging(); break;
 
         default:  fprintf(stderr, "Usage : server [OPTION] = [ARGUMENT]\n");
   			          fprintf(stderr, "OPTION: \n\t--scale=[f/c]\
-                                  \n\t--period=seconds\n");
+                                  \n\t--period=seconds\
+                                  \n\t--log=logfile\n");
   			          exit(1);
   			          break;
 
     }
   }
+}
+
+void setupLogging() {
+  int ofd = creat(logFile, 0666);
+  if (ofd < 0) {
+    int err = errno;
+    handleError("setupLogging", err);
+  }
+
+  close(1);
+  dup(ofd);
+  close(ofd);
+
 }
 
 void setupPoller() {
@@ -72,7 +91,10 @@ void setupPoller() {
 }
 
 void setupSensors() {
-  tempSensor = mraa_aio_init(0);
+  tempSensor = mraa_aio_init(1);
+  if (tempSensor == NULL) {
+    handleError("setupSensors (tempSensor)", errno);
+  }
 
   button = mraa_gpio_init(60);
   mraa_gpio_dir(button, MRAA_GPIO_IN);
@@ -92,9 +114,10 @@ void run() {
       modify();
     }
 
-    getTemperature();
-    sleep(1);
-
+    if(running) {
+      getTemperature();
+      sleep(period);
+    }
   }
 }
 
@@ -103,9 +126,8 @@ void modify() {
   int strSize = read(0, string, 256);
   string[strSize] = '\0';
 
-  write(0, string, strSize);
-  fprintf(stderr, "fprintf: %s\n", string);
-
+  write(1, string, strSize);
+  
   if (strcmp(string, "SCALE=F\n") == 0) {
     scale = 'f';
     fprintf(stderr, "Changing Scale to Farenheit...\n");
@@ -114,9 +136,9 @@ void modify() {
     scale = 'c';
     fprintf(stderr, "Changing Scale to Celsius...\n");
   }
-  else if (strcmp(string, "SCALE=C\n") == 0) {
-    scale = 'c';
-    fprintf(stderr, "Changing Scale to Celsius...\n");
+  else if (strcmp(string, "SCALE=F\n") == 0) {
+    scale = 'f';
+    fprintf(stderr, "Changing Scale to Farenheit...\n");
   }
   else if (strcmp(string, "START\n") == 0) {
     running = true;
@@ -157,11 +179,28 @@ void modify() {
 }
 
 void getTemperature() {
+  float a = mraa_aio_read(tempSensor);
+  float R = 1023.0/a-1.0;
+  R = 100000*R;
+  
+  float temperature = 1.0/(logf(R/100000)/4275+1/298.15)-273.15; // convert to temperature via datasheet
+
+  time_t rawTime = time(NULL);
+  struct tm * currTime;
+  currTime = localtime(&rawTime);
+
+  if (scale == 'f') {
+     temperature = temperature * 1.8 + 32;
+  }
+  
+  fprintf(1, "%.2d:%.2d:%.2d %.1f\n", currTime->tm_hour, currTime->tm_min, currTime->tm_sec, temperature);
+
+  //fprintf(stderr, "Temperature gotten..\n");
   return;
 }
 
 void buttonPress() {
-  fprintf(stderr, "Button Pressed");
+  fprintf(stderr, "Button Pressed\n");
   getTemperature();
   exit(0);
 }
