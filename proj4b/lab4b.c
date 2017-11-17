@@ -126,30 +126,29 @@ void modify() {
   int strSize = read(0, string, 256);
   string[strSize] = '\0';
 
-  write(1, string, strSize);
-  
   if (strcmp(string, "SCALE=F\n") == 0) {
     scale = 'f';
-    fprintf(stderr, "Changing Scale to Farenheit...\n");
+    //fprintf(stderr, "Changing Scale to Farenheit...\n");
   }
   else if (strcmp(string, "SCALE=C\n") == 0) {
     scale = 'c';
-    fprintf(stderr, "Changing Scale to Celsius...\n");
+    //fprintf(stderr, "Changing Scale to Celsius...\n");
   }
   else if (strcmp(string, "SCALE=F\n") == 0) {
     scale = 'f';
-    fprintf(stderr, "Changing Scale to Farenheit...\n");
+    //fprintf(stderr, "Changing Scale to Farenheit...\n");
   }
   else if (strcmp(string, "START\n") == 0) {
     running = true;
-    fprintf(stderr, "Starting...\n");
+    //fprintf(stderr, "Starting...\n");
   }
   else if (strcmp(string, "STOP\n") == 0) {
     running = false;
-    fprintf(stderr, "Stopping...\n");
+    //fprintf(stderr, "Stopping...\n");
   }
   else if (strcmp(string, "OFF\n") == 0) {
     getTemperature();
+    write(1, string, strSize);
     exit(0);
   }
   else {
@@ -163,7 +162,6 @@ void modify() {
 
     char number[10];
     for (; true; i++) {
-      fprintf(stderr, "%c", string[i]);
       if (isdigit(string[i]))
         number[i-7] = string[i];
       else if (string[i] == '\n')
@@ -174,15 +172,17 @@ void modify() {
 
     number[i-7] = '\0';
     period = atoi(number);
-    fprintf(stderr, "Changing Period to %d\n", period);
+    //fprintf(stderr, "Changing Period to %d\n", period);
   }
+
+  write(1, string, strSize);
 }
 
 void getTemperature() {
   float a = mraa_aio_read(tempSensor);
   float R = 1023.0/a-1.0;
   R = 100000*R;
-  
+
   float temperature = 1.0/(logf(R/100000)/4275+1/298.15)-273.15; // convert to temperature via datasheet
 
   time_t rawTime = time(NULL);
@@ -192,7 +192,7 @@ void getTemperature() {
   if (scale == 'f') {
      temperature = temperature * 1.8 + 32;
   }
-  
+
   fprintf(1, "%.2d:%.2d:%.2d %.1f\n", currTime->tm_hour, currTime->tm_min, currTime->tm_sec, temperature);
 
   //fprintf(stderr, "Temperature gotten..\n");
@@ -200,7 +200,7 @@ void getTemperature() {
 }
 
 void buttonPress() {
-  fprintf(stderr, "Button Pressed\n");
+  //fprintf(stderr, "Button Pressed\n");
   getTemperature();
   exit(0);
 }
