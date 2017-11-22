@@ -9,8 +9,13 @@
 
 #include "ext2_fs.h"
 
+// NECESSARY INFORMATION
 int fd_image, fd_csv;
 struct ext2_super_block super;
+struct ext2_group_desc group;
+
+// HELPFUL CONSTANTS (THAT ARE DECLARED LATER)
+int block_size;
 
 void handleError(char loc[256], int err) {
   fprintf(stderr, "Error encountered in ");
@@ -35,21 +40,35 @@ void processArguments(int argc, char* argv[]) {
 
 void analyzeSuper() {
   pread(fd_image, &super, sizeof(struct ext2_super_block), 1024);
+  block_size = 1024 << super.s_log_block_size;
 
   fprintf(stdout, "SUPERBLOCK,");
   fprintf(stdout, "%d,", super.s_blocks_count);
   fprintf(stdout, "%d,", super.s_inodes_count);
-  fprintf(stdout, "%d,", 1024 << super.s_log_block_size);  // SPEC
+  fprintf(stdout, "%d,", block_size);  // SPEC
   fprintf(stdout, "%d,", super.s_inode_size);
   fprintf(stdout, "%d,", super.s_blocks_per_group);
   fprintf(stdout, "%d,", super.s_inodes_per_group);
   fprintf(stdout, "%d\n", super.s_first_ino);
+}
 
+// WE ONLY HAVE TO DEAL WITH SINGLE GROUP SYSTEMS (PIAZZA)
+void analyzeGroup() {
+  int offset = super.s_first_data_block ? block_size * 2 : block_size;
+  pread(fd_image, &group, sizeof(struct ext2_group_desc), offset);
 
-
+  fprintf(stdout, "GROUP,0,");  // SINGLE GROUP SYSTEM
+  fprintf(stdout, "%d,", super.s_blocks_count);  // DUE TO SINGLE GRP
+  fprintf(stdout, "%d,", super.s_inodes_per_group);
+  fprintf(stdout, "%d,", group.bg_free_blocks_count);
+  fprintf(stdout, "%d,", group.bg_free_inodes_count);
+  fprintf(stdout, "%d,", group.bg_block_bitmap);
+  fprintf(stdout, "%d,", group.bg_inode_bitmap);
+  fprintf(stdout, "%d\n", group.bg_inode_table);
 }
 
 int main(int argc, char* argv[]) {
   processArguments(argc, argv);
   analyzeSuper();
+  analyzeGroup();
 }
