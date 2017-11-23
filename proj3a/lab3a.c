@@ -67,28 +67,11 @@ void analyzeGroup() {
     fprintf(stdout, "%d\n", group.bg_inode_table);
 }
 
-/*
- 
- INODE
- inode number (decimal)
- file type ('f' for file, 'd' for directory, 's' for symbolic link, '?" for anything else)
- mode (low order 12-bits, octal ... suggested format "0%o")
- owner (decimal)
- group (decimal)
- link count (decimal)
- time of last I-node change (mm/dd/yy hh:mm:ss, GMT)
- modification time (mm/dd/yy hh:mm:ss, GMT)
- time of last access (mm/dd/yy hh:mm:ss, GMT)
- file size (decimal)
- number of blocks (decimal)
- The next fifteen fields are block addresses (decimal, 12 direct, one indirect, one double indirect, one triple indirect).
- */
+
 void inode_summary()
 {
     int inode_table_offset = group.bg_inode_table * block_size;
-    // int inodeTableOffset = SUPEROFF + 4*BLOCKSIZE; // offset at which inodeTable startds
-    
-    
+   
     struct ext2_inode current_inode;
     
     ssize_t i = 0;
