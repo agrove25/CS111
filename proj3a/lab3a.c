@@ -22,7 +22,7 @@ void handleError(char loc[256], int err) {
     fprintf(stderr, "%s", loc);
     fprintf(stderr, ": ");
     fprintf(stderr, "%s\n", strerror(err));
-    
+
     exit(1);
 }
 
@@ -31,7 +31,7 @@ void processArguments(int argc, char* argv[]) {
         fprintf(stderr, "Requires an image file.\n");
         exit(1);
     }
-    
+
     fd_image = open(argv[1], O_RDONLY);
     if (fd_image < 0) {
         handleError("processArguments (open)", errno);
@@ -41,7 +41,7 @@ void processArguments(int argc, char* argv[]) {
 void analyzeSuper() {
     pread(fd_image, &super, sizeof(struct ext2_super_block), 1024);
     block_size = 1024 << super.s_log_block_size;
-    
+
     fprintf(stdout, "SUPERBLOCK,");
     fprintf(stdout, "%d,", super.s_blocks_count);
     fprintf(stdout, "%d,", super.s_inodes_count);
@@ -56,7 +56,7 @@ void analyzeSuper() {
 void analyzeGroup() {
     int offset = super.s_first_data_block ? block_size * 2 : block_size;
     pread(fd_image, &group, sizeof(struct ext2_group_desc), offset);
-    
+
     fprintf(stdout, "GROUP,0,");  // SINGLE GROUP SYSTEM
     fprintf(stdout, "%d,", super.s_blocks_count);  // DUE TO SINGLE GRP
     fprintf(stdout, "%d,", super.s_inodes_per_group);
@@ -67,6 +67,43 @@ void analyzeGroup() {
     fprintf(stdout, "%d\n", group.bg_inode_table);
 }
 
+bool checkValidBit(char byte, int index) {
+  return !(byte & (1 << index));
+}
+
+// WE ONLY HAVE TO DEAL WITH SINGLE GROUP SYSTEMS (PIAZZA)
+void analyzeBitmap() {
+  char byte;
+  int currentIndex = 0;
+
+  for (int i = 0; i < block_size; i++) {
+    pread(fd_image, &byte, 1, group.bg_block_bitmap * block_size + i);
+
+    for (int j = 0; j < 8; j++) {
+      currentIndex++;
+      if (checkValidBit(byte, j)) {
+        fprintf(stdout, "BFREE,%d\n", currentIndex);
+      }
+    }
+  }
+}
+
+void analyzeInode() {
+  char byte;
+  int currentIndex = 0;
+
+  for (int i = 0; i < block_size; i++) {
+    pread(fd_image, &byte, 1, group.bg_inode_bitmap * block_size + i);
+
+    for (int j = 0; j < 8; j++) {
+      currentIndex++;
+
+      if (checkValidBit(byte, j))
+        if (currentIndex <= super.s_inodes_per_group)
+          fprintf(stdout, "IFREE,%d\n", currentIndex);
+    }
+  }
+}
 
 /*
  DIRENT
@@ -84,29 +121,29 @@ void directory_entry(struct ext2_inode * curr_inode_ptr, __u32 inode_number )
     {
       if (! (curr_inode_ptr->i_block[i]))  //if this is 0, there's no more blocks
             return;
-        
+
         struct ext2_dir_entry curr_entry;
         int entry_offset=0;
         __u32 directory_offset = curr_inode_ptr->i_block[i] * block_size;
-        
+
         do
 	  {
-	  
+
             pread(fd_image, &curr_entry, sizeof(struct ext2_dir_entry), entry_offset + directory_offset);
-	    
+
 	    if(curr_entry.inode !=0)
 	      {
-	      
+
 	    __u32 parent_inode_number =  inode_number;
             __u32 logical_byte_offset = entry_offset;
             __u32 inode_number = curr_entry.inode;
             __u16 entry_length = curr_entry.rec_len;
             __u8 name_length = curr_entry.name_len;
-            
+
             fprintf(stdout, "DIRENT,%u,%u,%u,%u,%u,'%s'\n",parent_inode_number,logical_byte_offset,inode_number,entry_length,name_length,curr_entry.name);
 	      }
             entry_offset+=curr_entry.rec_len;  //go to the next entry
-        }while (entry_offset < block_size);
+        } while (entry_offset < block_size);
 
     }
 }
@@ -114,20 +151,20 @@ void directory_entry(struct ext2_inode * curr_inode_ptr, __u32 inode_number )
 void inode_summary()
 {
     int inode_table_offset = group.bg_inode_table * block_size;
-    
+
     struct ext2_inode current_inode;
-    
+
     __u32 i = 0;
     for (i = 0; i < super.s_inodes_count; i++)   //for every inodes
     {
-        
+
         //store infos to current_inode
         pread(fd_image, &current_inode, sizeof(struct ext2_inode), inode_table_offset + i * sizeof(struct ext2_inode));
-        
+
         //process current_inode
         if ( (current_inode.i_mode) != 0 && (current_inode.i_links_count) != 0) {
             __u32 inode_number = i+1;
-            
+
             char fileType = '?';
             if (current_inode.i_mode & 0xA000)
                 fileType = 's';
@@ -135,34 +172,34 @@ void inode_summary()
                 fileType = 'f';
             if (current_inode.i_mode & 0x4000)
                 fileType = 'd';
-            
+
             __u16 mode = current_inode.i_mode & 0xFFF;
             __u16 owner = current_inode.i_uid;
             __u16 group = current_inode.i_gid;
             __u16 link_count = current_inode.i_links_count;
-            
+
             struct tm timestamp;
-            
+
             char creation_time[19];  //??time of last I-node change
             time_t c_timestamp = current_inode.i_ctime;
             timestamp = *gmtime(&c_timestamp);
             strftime(creation_time, 19, "%D %H:%M:%S", &timestamp);
-            
+
             char modification_time[19];
             time_t m_timestamp = current_inode.i_mtime;
             timestamp = *gmtime(&m_timestamp);
             strftime(modification_time, 19, "%D %H:%M:%S", &timestamp);
-            
+
             char access_time[19];
             time_t a_timestamp = current_inode.i_atime;
             timestamp = *gmtime(&a_timestamp);
             strftime(access_time, 19, "%D %H:%M:%S", &timestamp);
-            
+
             __u32 file_size = current_inode.i_size;
             __u32 num_blocks = current_inode.i_blocks;
-            
+
             fprintf(stdout, "INODE,%u,%c,%o,%u,%u,%u,%s,%s,%s,%u,%u",inode_number,fileType,mode,owner,group,link_count,creation_time,modification_time,access_time,file_size,num_blocks);
-            
+
             //print out addresses of blocks
             int j=0;
             for (j=0; j < 15 ; j++ )
@@ -170,15 +207,15 @@ void inode_summary()
                 fprintf(stdout, ",%u",current_inode.i_block[j]);
             }
             fprintf(stdout,"\n");
-            
+
             //if this is a directory, process it.
             if ( fileType == 'd')
             {
                 directory_entry(&current_inode,inode_number);
             }
         }
-        
-        
+
+
     }
 }
 
@@ -187,5 +224,7 @@ int main(int argc, char* argv[]) {
     processArguments(argc, argv);
     analyzeSuper();
     analyzeGroup();
+    analyzeBitmap();
+    analyzeInode();
     inode_summary();
 }
