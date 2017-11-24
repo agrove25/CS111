@@ -68,13 +68,56 @@ void analyzeGroup() {
 }
 
 
+/*
+ DIRENT
+ parent inode number (decimal) ... the I-node number of the directory that contains this entry
+ logical byte offset (decimal) of this entry within the directory
+ inode number of the referenced file (decimal)
+ entry length (decimal)
+ name length (decimal)
+ name (string, surrounded by single-quotes). Don't worry about escaping, we promise there will be no single-quotes or commas in any of the file names.
+ */
+void directory_entry(struct ext2_inode * curr_inode_ptr, __u32 inode_number )
+{
+    int i =0;
+    for (i=0;i<EXT2_NDIR_BLOCKS;i++)  //for all the directory blocks
+    {
+      if (! (curr_inode_ptr->i_block[i]))  //if this is 0, there's no more blocks
+            return;
+        
+        struct ext2_dir_entry curr_entry;
+        int entry_offset=0;
+        __u32 directory_offset = curr_inode_ptr->i_block[i] * block_size;
+        
+        do
+	  {
+	  
+            pread(fd_image, &curr_entry, sizeof(struct ext2_dir_entry), entry_offset + directory_offset);
+	    
+	    if(curr_entry.inode !=0)
+	      {
+	      
+	    __u32 parent_inode_number =  inode_number;
+            __u32 logical_byte_offset = entry_offset;
+            __u32 inode_number = curr_entry.inode;
+            __u16 entry_length = curr_entry.rec_len;
+            __u8 name_length = curr_entry.name_len;
+            
+            fprintf(stdout, "DIRENT,%u,%u,%u,%u,%u,'%s'\n",parent_inode_number,logical_byte_offset,inode_number,entry_length,name_length,curr_entry.name);
+	      }
+            entry_offset+=curr_entry.rec_len;  //go to the next entry
+        }while (entry_offset < block_size);
+
+    }
+}
+
 void inode_summary()
 {
     int inode_table_offset = group.bg_inode_table * block_size;
-   
+    
     struct ext2_inode current_inode;
     
-    ssize_t i = 0;
+    __u32 i = 0;
     for (i = 0; i < super.s_inodes_count; i++)   //for every inodes
     {
         
@@ -88,9 +131,9 @@ void inode_summary()
             char fileType = '?';
             if (current_inode.i_mode & 0xA000)
                 fileType = 's';
-             if (current_inode.i_mode & 0x8000)
+            if (current_inode.i_mode & 0x8000)
                 fileType = 'f';
-             if (current_inode.i_mode & 0x4000)
+            if (current_inode.i_mode & 0x4000)
                 fileType = 'd';
             
             __u16 mode = current_inode.i_mode & 0xFFF;
@@ -103,17 +146,17 @@ void inode_summary()
             char creation_time[19];  //??time of last I-node change
             time_t c_timestamp = current_inode.i_ctime;
             timestamp = *gmtime(&c_timestamp);
-            strftime(creation_time, 19, "%m/%d/%y %H:%M:%S", &timestamp);
+            strftime(creation_time, 19, "%D %H:%M:%S", &timestamp);
             
             char modification_time[19];
             time_t m_timestamp = current_inode.i_mtime;
             timestamp = *gmtime(&m_timestamp);
-            strftime(modification_time, 19, "%m/%d/%y %H:%M:%S", &timestamp);
+            strftime(modification_time, 19, "%D %H:%M:%S", &timestamp);
             
             char access_time[19];
             time_t a_timestamp = current_inode.i_atime;
             timestamp = *gmtime(&a_timestamp);
-            strftime(access_time, 19, "%m/%d/%y %H:%M:%S", &timestamp);
+            strftime(access_time, 19, "%D %H:%M:%S", &timestamp);
             
             __u32 file_size = current_inode.i_size;
             __u32 num_blocks = current_inode.i_blocks;
@@ -126,7 +169,13 @@ void inode_summary()
             {
                 fprintf(stdout, ",%u",current_inode.i_block[j]);
             }
-	    fprintf(stdout,"\n");
+            fprintf(stdout,"\n");
+            
+            //if this is a directory, process it.
+            if ( fileType == 'd')
+            {
+                directory_entry(&current_inode,inode_number);
+            }
         }
         
         
