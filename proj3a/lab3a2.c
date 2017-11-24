@@ -121,8 +121,8 @@ void directory_entry(struct ext2_inode * curr_inode_ptr, __u32 inode_number )
     int i =0;
     for (i=0;i<EXT2_NDIR_BLOCKS;i++)  //for all the directory blocks
     {
-        if ( (curr_inode_ptr->i_block[i]))  //if this is 0, there's no more blocks
-	  {	  // return;
+        if (! (curr_inode_ptr->i_block[i]))  //if this is 0, there's no more blocks
+            return;
         
         struct ext2_dir_entry curr_entry;
         int entry_offset=0;
@@ -146,7 +146,7 @@ void directory_entry(struct ext2_inode * curr_inode_ptr, __u32 inode_number )
             }
             entry_offset+=curr_entry.rec_len;  //go to the next entry
         } while (entry_offset < block_size);
-	  }
+        
     }
 }
 
@@ -162,10 +162,10 @@ void indirect_block_reference(struct ext2_inode * curr_inode_ptr, __u32 inode_nu
         
         int j=0;
         for( j = 0; j < block_size/4; j++){  //for every data blocks
-            if(firstLevel_blocks[j] != 0) //break if the block number is 0
-	      {  // break;
+            if(firstLevel_blocks[j] == 0) //break if the block number is 0
+                break;
             
-           
+            
             __u32 level_indirection = 1;
             __u32 logical_block_offset = j +12;
             __u32 indirect_block_num = curr_inode_ptr->i_block[12];
@@ -173,8 +173,21 @@ void indirect_block_reference(struct ext2_inode * curr_inode_ptr, __u32 inode_nu
             
             fprintf(stdout, "INDIRECT,%u,%u,%u,%u,%u\n", inode_number,level_indirection,logical_block_offset,indirect_block_num,curr_block_num);
             
-
-	      }
+            
+            /*
+             __u16 entry_offset=0;
+             do
+             {
+             pread(fd_image, &curr_entry, sizeof( struct ext2_dir_entry), firstLevel_blocks[j] * block_size + entry_offset); //locate this specific data block
+             
+             indirectory_entry(&curr_entry, logical_offset);
+             
+             entry_offset += curr_entry.rec_len;
+             
+             }while (entry_offset < block_size);
+             
+             */
+            
         }
         
         free(firstLevel_blocks);
@@ -193,10 +206,11 @@ void indirect_block_reference(struct ext2_inode * curr_inode_ptr, __u32 inode_nu
         int j=0;
         for( j = 0; j < block_size/4; j++)
         {  //for every indirect blocks
-	  if (firstLevel_blocks[j]!=0)
-	    {
+	  if (firstLevel_blocks[j]==0)
+	    break;
+
 	
-            __u32 level_indirection = 2;
+            __u32 level_indirection = 1;
             __u32 logical_block_offset = 888888888;
             __u32 indirect_block_num = curr_inode_ptr->i_block[13];
             __u32 curr_block_num=firstLevel_blocks[j];
@@ -210,20 +224,20 @@ void indirect_block_reference(struct ext2_inode * curr_inode_ptr, __u32 inode_nu
             for( x = 0; x < block_size/4; x++)
             {  //for every data blocks
                 
-                if(secondLevel_blocks[x] != 0) //break if the block number is 0
-		  {
-		 
-                __u32 level_indirection = 1;
+                if(secondLevel_blocks[x] == 0) //break if the block number is 0
+                    break;
+		  fprintf(stdout,"double direct\n");
+                __u32 level_indirection = 2;
                 __u32 logical_block_offset = 888888888;
                 __u32 indirect_block_num = firstLevel_blocks[j];
                 __u32 curr_block_num=secondLevel_blocks[x];
                 
                 fprintf(stdout, "INDIRECT,%u,%u,%u,%u,%u\n", inode_number,level_indirection,logical_block_offset,indirect_block_num,curr_block_num);
-		  }
+                
             }
             
         }
-        }
+        
         free(firstLevel_blocks);
         free(secondLevel_blocks);
         
@@ -243,11 +257,11 @@ void indirect_block_reference(struct ext2_inode * curr_inode_ptr, __u32 inode_nu
         int j=0;
         for( j = 0; j < block_size/4; j++)
         {  //for every indirect blocks
-            if(firstLevel_blocks[j] != 0) //break if the block number is 0
-	      { 
+            if(firstLevel_blocks[j] == 0) //break if the block number is 0
+                break;
             
             
-            __u32 level_indirection = 3;
+            __u32 level_indirection = 1;
             __u32 logical_block_offset = 888888888;
             __u32 indirect_block_num = curr_inode_ptr->i_block[14];
             __u32 curr_block_num=firstLevel_blocks[j];
@@ -261,8 +275,8 @@ void indirect_block_reference(struct ext2_inode * curr_inode_ptr, __u32 inode_nu
             for( x = 0; x < block_size/4; x++)
             {  //for every data blocks
                 
-                if(secondLevel_blocks[x] != 0) //break if the block number is 0
-		  {
+                if(secondLevel_blocks[x] == 0) //break if the block number is 0
+                    break;
                
                 __u32 level_indirection = 2;
                 __u32 logical_block_offset = 888888888;
@@ -275,22 +289,21 @@ void indirect_block_reference(struct ext2_inode * curr_inode_ptr, __u32 inode_nu
                 int k=0;
                 for( k = 0; k < block_size/4; k++)
                 {  //for every data blocks
-                    if(thirdLevel_blocks[k] != 0) //break if the block number is 0
-                      {//  break;
-		   
-                    __u32 level_indirection = 1;
+                    if(thirdLevel_blocks[k] == 0) //break if the block number is 0
+                        break;
+		     fprintf(stdout,"tri-direct\n");
+                    __u32 level_indirection = 3;
                     __u32 logical_block_offset = 888888888;
                     __u32 indirect_block_num = secondLevel_blocks[x];
                     __u32 curr_block_num=thirdLevel_blocks[k];
                     
                     fprintf(stdout, "INDIRECT,%u,%u,%u,%u,%u\n", inode_number,level_indirection,logical_block_offset,indirect_block_num,curr_block_num);
                 }
-		}
-		  } 
+                
             }
             
         }
-        }
+        
         free(firstLevel_blocks);
         free(secondLevel_blocks);
         free(thirdLevel_blocks);
