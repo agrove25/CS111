@@ -16,6 +16,8 @@ struct ext2_group_desc group;
 
 // HELPFUL CONSTANTS (THAT ARE DECLARED LATER)
 int block_size;
+int n_directory;
+int * inode_directory;
 
 void handleError(char loc[256], int err) {
     fprintf(stderr, "Error encountered in ");
@@ -170,8 +172,12 @@ void inode_summary()
                 fileType = 's';
             if (current_inode.i_mode & 0x8000)
                 fileType = 'f';
-            if (current_inode.i_mode & 0x4000)
+            if (current_inode.i_mode & 0x4000) {
                 fileType = 'd';
+                n_directory++;
+                inode_directory = realloc(inode_directory, n_directory * sizeof(int*));
+                inode_directory[n_directory - 1] = inode_number;
+              }
 
             __u16 mode = current_inode.i_mode & 0xFFF;
             __u16 owner = current_inode.i_uid;
@@ -219,12 +225,18 @@ void inode_summary()
     }
 }
 
+void analyzeIndirect() {
+  // no idea atm :/
+}
 
 int main(int argc, char* argv[]) {
+    inode_directory = malloc(1);
+
     processArguments(argc, argv);
     analyzeSuper();
     analyzeGroup();
     analyzeBitmap();
     analyzeInode();
     inode_summary();
+    analyzeIndirect();
 }
