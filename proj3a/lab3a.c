@@ -107,52 +107,44 @@ void analyzeInode() {
     }
 }
 
-/*
- DIRENT
- parent inode number (decimal) ... the I-node number of the directory that contains this entry
- logical byte offset (decimal) of this entry within the directory
- inode number of the referenced file (decimal)
- entry length (decimal)
- name length (decimal)
- name (string, surrounded by single-quotes). Don't worry about escaping, we promise there will be no single-quotes or commas in any of the file names.
- */
+
 void directory_entry(struct ext2_inode * curr_inode_ptr, __u32 inode_number )
 {
     int i =0;
     for (i=0;i<EXT2_NDIR_BLOCKS;i++)  //for all the directory blocks
     {
         if ( (curr_inode_ptr->i_block[i]))  //if this is 0, there's no more blocks
-	  {	  // return;
-        
-        struct ext2_dir_entry curr_entry;
-        int entry_offset=0;
-        __u32 directory_offset = curr_inode_ptr->i_block[i] * block_size;
-        
-        do
         {
             
-            pread(fd_image, &curr_entry, sizeof(struct ext2_dir_entry), entry_offset + directory_offset);
+            struct ext2_dir_entry curr_entry;
+            int entry_offset=0;
+            __u32 directory_offset = curr_inode_ptr->i_block[i] * block_size;
             
-            if(curr_entry.inode !=0)
+            do
             {
                 
-                __u32 parent_inode_number =  inode_number;
-                __u32 logical_byte_offset = entry_offset;
-                __u32 inode_number = curr_entry.inode;
-                __u16 entry_length = curr_entry.rec_len;
-                __u8 name_length = curr_entry.name_len;
+                pread(fd_image, &curr_entry, sizeof(struct ext2_dir_entry), entry_offset + directory_offset);
                 
-                fprintf(stdout, "DIRENT,%u,%u,%u,%u,%u,'%s'\n",parent_inode_number,logical_byte_offset,inode_number,entry_length,name_length,curr_entry.name);
-            }
-            entry_offset+=curr_entry.rec_len;  //go to the next entry
-        } while (entry_offset < block_size);
-	  }
+                if(curr_entry.inode !=0)
+                {
+                    
+                    __u32 parent_inode_number =  inode_number;
+                    __u32 logical_byte_offset = entry_offset;
+                    __u32 inode_number = curr_entry.inode;
+                    __u16 entry_length = curr_entry.rec_len;
+                    __u8 name_length = curr_entry.name_len;
+                    
+                    fprintf(stdout, "DIRENT,%u,%u,%u,%u,%u,'%s'\n",parent_inode_number,logical_byte_offset,inode_number,entry_length,name_length,curr_entry.name);
+                }
+                entry_offset+=curr_entry.rec_len;  //go to the next entry
+            } while (entry_offset < block_size);
+        }
     }
 }
 
 void indirect_block_reference(struct ext2_inode * curr_inode_ptr, __u32 inode_number)
 {
- 
+    
     //single indirect
     if(curr_inode_ptr->i_block[12] > 0)
     {
@@ -161,22 +153,21 @@ void indirect_block_reference(struct ext2_inode * curr_inode_ptr, __u32 inode_nu
         pread(fd_image, firstLevel_blocks, block_size, first_level_offset);  //the first_level_block is an array of block numbers, get that array ("firstLevel_blocks")
         
         int j=0;
-        for( j = 0; j < block_size/4; j++){  //for every data blocks
-            if(firstLevel_blocks[j] != 0) //break if the block number is 0
-	      {  // break;
-            
-           
-            __u32 level_indirection = 1;
-            __u32 logical_block_offset = j +12;
-            __u32 indirect_block_num = curr_inode_ptr->i_block[12];
-            __u32 curr_block_num=firstLevel_blocks[j];
-            
-            fprintf(stdout, "INDIRECT,%u,%u,%u,%u,%u\n", inode_number,level_indirection,logical_block_offset,indirect_block_num,curr_block_num);
-            
 
-	      }
+        for( j = 0; j < block_size/4; j++){  //for every data blocks
+	 
+            if(firstLevel_blocks[j] != 0) //break if the block number is 0
+            {
+                     
+                __u32 level_indirection = 1;
+                __u32 logical_block_offset = j +12;
+                __u32 indirect_block_num = curr_inode_ptr->i_block[12];
+                __u32 curr_block_num=firstLevel_blocks[j];
+                
+                fprintf(stdout, "INDIRECT,%u,%u,%u,%u,%u\n", inode_number,level_indirection,logical_block_offset,indirect_block_num,curr_block_num);
+                
+            }
         }
-        
         free(firstLevel_blocks);
     }
     
@@ -188,42 +179,46 @@ void indirect_block_reference(struct ext2_inode * curr_inode_ptr, __u32 inode_nu
         int first_level_offset = curr_inode_ptr->i_block[13] * block_size; //where the first level block locate.
         pread(fd_image, firstLevel_blocks, block_size, first_level_offset);  //the first_level_block is an array of block numbers, get that array ("firstLevel_blocks")
         
-        
+
         int * secondLevel_blocks = malloc(block_size);
         int j=0;
+
         for( j = 0; j < block_size/4; j++)
         {  //for every indirect blocks
-	  if (firstLevel_blocks[j]!=0)
-	    {
-	
-            __u32 level_indirection = 2;
-            __u32 logical_block_offset = 888888888;
-            __u32 indirect_block_num = curr_inode_ptr->i_block[13];
-            __u32 curr_block_num=firstLevel_blocks[j];
-            
-            fprintf(stdout, "INDIRECT,%u,%u,%u,%u,%u\n", inode_number,level_indirection,logical_block_offset,indirect_block_num,curr_block_num);
-            
-            
-            pread(fd_image, secondLevel_blocks, block_size, firstLevel_blocks[j]*block_size); //get the second level block array.
-            
-            int x=0;
-            for( x = 0; x < block_size/4; x++)
-            {  //for every data blocks
-                
-                if(secondLevel_blocks[x] != 0) //break if the block number is 0
-		  {
-		 
-                __u32 level_indirection = 1;
-                __u32 logical_block_offset = 888888888;
-                __u32 indirect_block_num = firstLevel_blocks[j];
-                __u32 curr_block_num=secondLevel_blocks[x];
+    
+            if (firstLevel_blocks[j]!=0)
+            {
+
+                __u32 level_indirection = 2;
+                __u32 logical_block_offset = 256 + 12;
+                __u32 indirect_block_num = curr_inode_ptr->i_block[13];
+                __u32 curr_block_num=firstLevel_blocks[j];
                 
                 fprintf(stdout, "INDIRECT,%u,%u,%u,%u,%u\n", inode_number,level_indirection,logical_block_offset,indirect_block_num,curr_block_num);
-		  }
+                
+                
+                pread(fd_image, secondLevel_blocks, block_size, firstLevel_blocks[j]*block_size); //get the second level block array.
+                
+                int x=0;
+                for( x = 0; x < block_size/4; x++)
+                {  //for every data blocks
+                   
+                    if(secondLevel_blocks[x] != 0) //break if the block number is 0
+                    {
+                        
+                        __u32 level_indirection = 1;
+                        __u32 logical_block_offset = 256+12+x;
+                        __u32 indirect_block_num = firstLevel_blocks[j];
+                        __u32 curr_block_num=secondLevel_blocks[x];
+                        
+                        fprintf(stdout, "INDIRECT,%u,%u,%u,%u,%u\n", inode_number,level_indirection,logical_block_offset,indirect_block_num,curr_block_num);
+                    }
+
+                }
+                
             }
-            
         }
-        }
+
         free(firstLevel_blocks);
         free(secondLevel_blocks);
         
@@ -237,67 +232,67 @@ void indirect_block_reference(struct ext2_inode * curr_inode_ptr, __u32 inode_nu
         int first_level_offset = curr_inode_ptr->i_block[14] * block_size; //where the first level block locate.
         pread(fd_image, firstLevel_blocks, block_size, first_level_offset);  //the first_level_block is an array of block numbers, get that array ("firstLevel_blocks")
         
-        
         int * secondLevel_blocks = malloc(block_size);
         int * thirdLevel_blocks = malloc(block_size);
         int j=0;
         for( j = 0; j < block_size/4; j++)
         {  //for every indirect blocks
+
             if(firstLevel_blocks[j] != 0) //break if the block number is 0
-	      { 
-            
-            
-            __u32 level_indirection = 3;
-            __u32 logical_block_offset = 888888888;
-            __u32 indirect_block_num = curr_inode_ptr->i_block[14];
-            __u32 curr_block_num=firstLevel_blocks[j];
-            
-            fprintf(stdout, "INDIRECT,%u,%u,%u,%u,%u\n", inode_number,level_indirection,logical_block_offset,indirect_block_num,curr_block_num);
-            
-            
-            pread(fd_image, secondLevel_blocks, block_size, firstLevel_blocks[j]*block_size); //get the second level block array.
-            
-            int x=0;
-            for( x = 0; x < block_size/4; x++)
-            {  //for every data blocks
+            {
                 
-                if(secondLevel_blocks[x] != 0) //break if the block number is 0
-		  {
-               
-                __u32 level_indirection = 2;
-                __u32 logical_block_offset = 888888888;
-                __u32 indirect_block_num = firstLevel_blocks[j];
-                __u32 curr_block_num=secondLevel_blocks[x];
+	      
+                __u32 level_indirection = 3;
+                __u32 logical_block_offset = 256*256 + (12 + 256);
+                __u32 indirect_block_num = curr_inode_ptr->i_block[14];
+                __u32 curr_block_num=firstLevel_blocks[j];
                 
                 fprintf(stdout, "INDIRECT,%u,%u,%u,%u,%u\n", inode_number,level_indirection,logical_block_offset,indirect_block_num,curr_block_num);
                 
-                pread(fd_image, thirdLevel_blocks, block_size, secondLevel_blocks[x]*block_size); //get the second level block array.
-                int k=0;
-                for( k = 0; k < block_size/4; k++)
+                
+                pread(fd_image, secondLevel_blocks, block_size, firstLevel_blocks[j]*block_size); //get the second level block array.
+                
+                int x=0;
+                for( x = 0; x < block_size/4; x++)
                 {  //for every data blocks
-                    if(thirdLevel_blocks[k] != 0) //break if the block number is 0
-                      {//  break;
-		   
-                    __u32 level_indirection = 1;
-                    __u32 logical_block_offset = 888888888;
-                    __u32 indirect_block_num = secondLevel_blocks[x];
-                    __u32 curr_block_num=thirdLevel_blocks[k];
-                    
-                    fprintf(stdout, "INDIRECT,%u,%u,%u,%u,%u\n", inode_number,level_indirection,logical_block_offset,indirect_block_num,curr_block_num);
+        
+                    if(secondLevel_blocks[x] != 0) //break if the block number is 0
+                    {
+                        
+                        __u32 level_indirection = 2;
+                        __u32 logical_block_offset =  256*256 + (12 + 256);
+                        __u32 indirect_block_num = firstLevel_blocks[j];
+                        __u32 curr_block_num=secondLevel_blocks[x];
+                        
+                        fprintf(stdout, "INDIRECT,%u,%u,%u,%u,%u\n", inode_number,level_indirection,logical_block_offset,indirect_block_num,curr_block_num);
+                        
+                        pread(fd_image, thirdLevel_blocks, block_size, secondLevel_blocks[x]*block_size); //get the second level block array.
+                        int k=0;
+                        for( k = 0; k < block_size/4; k++)
+                        {  //for every data blocks
+	        
+                            if(thirdLevel_blocks[k] != 0)
+                            {
+                                
+                                __u32 level_indirection = 1;
+                                __u32 logical_block_offset =  256*256 + (12 + 256) + k;
+                                __u32 indirect_block_num = secondLevel_blocks[x];
+                                __u32 curr_block_num=thirdLevel_blocks[k];
+                                
+                                fprintf(stdout, "INDIRECT,%u,%u,%u,%u,%u\n", inode_number,level_indirection,logical_block_offset,indirect_block_num,curr_block_num);
+                            }
+                        }
+                    }
                 }
-		}
-		  } 
+                
             }
-            
-        }
         }
         free(firstLevel_blocks);
         free(secondLevel_blocks);
         free(thirdLevel_blocks);
-        
     }
-    
-    
+
+
 }
 
 void inode_summary()
