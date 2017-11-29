@@ -14,7 +14,11 @@ indirects = []
 reader = None
 writer = None
 errors = 0
+used_blocks = []                 # used to check for unref and alloc
+blocks = {}                      # used to check for duplicates
 
+
+# -------------- CSV FILE CLASSES ---------------------#
 class Superblock:
     def __init__(self, entry):
         self.n_blocks = int(entry[1])
@@ -130,15 +134,32 @@ class Writer:
 
         print("BLOCK {} IN INODE {} AT OFFSET {}".format(b_num, i_num, offset))
 
+    def print_duplicate(self, b_num, i_num, offset, indirect):
+        print("DUPLICATE ", end="")
+
+        if (indirect == 1):
+            print("INDIRECT ", end="")
+        elif (indirect == 2):
+            print("DOUBLE INDIRECT ", end="")
+        elif (indirect == 3):
+            print("TRIPLE INDIRECT ", end="")
+
+        print("BLOCK {} IN INODE {} AT OFFSET {}".format(b_num, i_num, offset))
+
 
 def check_block(b_num, i_num, offset, indirect):
-    global superblock
+    global blocks, used_blocks
 
     if b_num < 0 or b_num >= superblock.n_blocks:
         writer.print_invalid(b_num, i_num, offset, indirect)
     elif b_num < 8 and b_num > 0:
         writer.print_reserved(b_num, i_num, offset, indirect)
+    elif b_num != 0:
+        if (b_num not in used_blocks):
+            used_blocks.append(b_num)
+            blocks[b_num] = []
 
+        blocks[b_num].append((b_num, i_num, offset, indirect))
 
 def analyze_blocks():
     # iterating over inode block addresses
@@ -156,11 +177,22 @@ def analyze_blocks():
             if (i == 14):
                 check_block(b_num, i_num, 65804, 3)
 
+    # checks the indirect blocks
+    for ind in indirects:
+        check_block(ind.ref_block_number, ind.own_inode_num,
+                    ind.byte_offset, ind.indirect_level)
 
+    # checks for unreferenced, allocated, and duplicates
+    for i in range(8, superblock.n_blocks):
+        if (i not in free_blocks) and (i not in used_blocks):
+            print("UNREFERENCED BLOCK {}".format(i))
+        elif (i in free_blocks) and (i in used_blocks):
+            print("ALLOCATED BLOCK {} ON FREELIST".format(i))
 
-
-
-
+    for i in used_blocks:
+        if (len(blocks[i]) > 1):
+            for tup in blocks[i]:
+                writer.print_duplicate(tup[0], tup[1], tup[2], tup[3])
 
 if __name__ == "__main__":
     # Initial Variable Setup
