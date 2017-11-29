@@ -6,10 +6,14 @@ superblock = None
 group = None
 free_inodes = []
 free_blocks = []
-inodes = {}     # indexes are inode numbers
+inodes = []
 dirents = []
 indirects = []
 
+# ---------------- AUDIT VARIABLES --------------------#
+reader = None
+writer = None
+errors = 0
 
 class Superblock:
     def __init__(self, entry):
@@ -72,6 +76,9 @@ class Reader:
         self.csv_file = csv_file
 
     def read_entry(self, entry):
+        global superblock, group, free_inodes, free_blocks, inodes
+        global dirents, indirects
+
         if (entry[0] == 'SUPERBLOCK'):
             superblock = Superblock(entry)
         elif (entry[0] == 'GROUP'):
@@ -81,7 +88,7 @@ class Reader:
         elif (entry[0] == 'IFREE'):
             free_inodes.append(int(entry[1]))
         elif (entry[0] == 'INODE'):
-            inodes[int(entry[1])] = Inode(entry)
+            inodes.append(Inode(entry))
         elif (entry[0] == 'DIRENT'):
             dirents.append(Dirent(entry))
         elif (entry[0] == 'INDIRECT'):
@@ -91,16 +98,80 @@ class Reader:
             exit(1)
 
 
+
     def read_csv(self):
         reader = csv.reader(self.csv_file, delimiter=',')
 
         for r in reader:
             self.read_entry(r)
 
+class Writer:
+    def print_invalid(self, b_num, i_num, offset, indirect):
+        print("INVALID ", end="")
+
+        if (indirect == 1):
+            print("INDIRECT ", end="")
+        elif (indirect == 2):
+            print("DOUBLE INDIRECT ", end="")
+        elif (indirect == 3):
+            print("TRIPLE INDIRECT ", end="")
+
+        print("BLOCK {} IN INODE {} AT OFFSET {}".format(b_num, i_num, offset))
+
+    def print_reserved(self, b_num, i_num, offset, indirect):
+        print("RESERVED ", end="")
+
+        if (indirect == 1):
+            print("INDIRECT ", end="")
+        elif (indirect == 2):
+            print("DOUBLE INDIRECT ", end="")
+        elif (indirect == 3):
+            print("TRIPLE INDIRECT ", end="")
+
+        print("BLOCK {} IN INODE {} AT OFFSET {}".format(b_num, i_num, offset))
+
+
+def check_block(b_num, i_num, offset, indirect):
+    global superblock
+
+    if b_num < 0 or b_num >= superblock.n_blocks:
+        writer.print_invalid(b_num, i_num, offset, indirect)
+    elif b_num < 8 and b_num > 0:
+        writer.print_reserved(b_num, i_num, offset, indirect)
+
+
+def analyze_blocks():
+    # iterating over inode block addresses
+    for inode in inodes:
+        for i in range(0, 15):
+            b_num = inode.blocks[i]
+            i_num = inode.inode_num
+
+            if (i < 12):
+                check_block(b_num, i_num, i, 0)
+            if (i == 12):
+                check_block(b_num, i_num, 12, 1)
+            if (i == 13):
+                check_block(b_num, i_num, 268, 2)
+            if (i == 14):
+                check_block(b_num, i_num, 65804, 3)
+
+
+
+
+
+
 
 if __name__ == "__main__":
+    # Initial Variable Setup
     csv_file = open(sys.argv[1], 'r')
     reader = Reader(csv_file)
+    writer = Writer()
     reader.read_csv()
+
+    # Analysis
+    analyze_blocks()
+
+
 
     csv_file.close()
