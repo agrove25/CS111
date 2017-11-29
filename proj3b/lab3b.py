@@ -194,6 +194,18 @@ def analyze_blocks():
             for tup in blocks[i]:
                 writer.print_duplicate(tup[0], tup[1], tup[2], tup[3])
 
+
+def analyze_inodes():
+    global free_inodes
+
+    for inode in inodes:
+        if inode.inode_num not in free_inodes and (inode.inode_file == '0'):
+                print("UNALLOCATED INODE {} NOT ON FREELIST".format(inode.inode_num))
+        elif inode.inode_num in free_inodes and (inode.inode_file !='0'):
+                print("ALLOCATED INODE {} ON FREELIST".format(inode.inode_num))
+
+                
+
 if __name__ == "__main__":
     # Initial Variable Setup
     csv_file = open(sys.argv[1], 'r')
@@ -204,6 +216,6 @@ if __name__ == "__main__":
     # Analysis
     analyze_blocks()
 
-
+    analyze_inodes()
 
     csv_file.close()
