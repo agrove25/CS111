@@ -10,7 +10,6 @@ class Inode:
 class Block:
     def __init__(self, block_num):
         self.block_num = block_num
-        self.inodes = set()
         self.state = 'USED'
 
 class Analyzer:
@@ -25,19 +24,25 @@ class Analyzer:
 
     #---- PRINT FUNCTIONS ----#
 
-    def print_indirect(self, b_num, i_num, offset, indirect):
-        if (indirect == 0):
-            print("INVALID BLOCK {} IN INODE {} AT OFFSET {}\n".format(b_num, i_num, offset))
-        elif (indirect > 0):
-            print("Haven't added this functionality (print_indirect)")
+    def print_invalid(self, b_num, i_num, offset, indirect):
+        print("INVALID ", end="")
+
+        if (indirect == 1):
+            print("INDIRECT ", end="")
+        elif (indirect == 2):
+            print("DOUBLE INDIRECT ", end="")
+        elif (indirect == 3):
+            print("TRIPLE INDIRECT ", end="")
+
+        print("BLOCK {} IN INODE {} AT OFFSET {}".format(b_num, i_num, offset))
 
     #---- ANALYSIS FUNCTIONS ----#
 
     def add_block(self, b_num, i_num, offset, indirect):
         if b_num < 0 or b_num >= self.n_blocks:
-            self.print_indirect(b_num, i_num, offset, indirect)
-
-
+            self.print_invalid(b_num, i_num, offset, indirect)
+        else:
+            self.blocks[b_num] = Block(b_num)
 
     #---- READER FUNCTIONS ----#
 
@@ -51,9 +56,25 @@ class Analyzer:
         self.inodes[entry[1]] = Inode(i_num, int(entry[6]))
         n_addresses = int(entry[11])
 
+        for i in range(12, 24):
+            self.add_block(int(entry[i]), i_num, i-12, 0)
+        self.add_block(int(entry[24]), i_num, 12, 1)
+        self.add_block(int(entry[25]), i_num, 268, 2)
+        self.add_block(int(entry[26]), i_num, 65804, 3)
+
+        # NOT SURE IF THE ABOVE OR THE ONE BELOW
+        """
         for i in range(12, 12 + min(n_addresses, 12)):
             b_num = int(entry[i])
+            print(b_num)
             self.add_block(b_num, i_num, 8888, 0)
+        if (n_addresses >= 13):
+            self.add_block(int(entry[24]), i_num, 8888, 1)
+        if (n_addresses >= 14):
+            self.add_block(int(entry[25]), i_num, 8888, 2)
+        if (n_addresses >= 15):
+            self.add_block(int(entry[26]), i_num, 8888, 3)
+        """
 
     def read_entry(self, entry):
         if (entry[0] == 'SUPERBLOCK'):
@@ -74,9 +95,5 @@ if __name__ == "__main__":
     csv_file = open(sys.argv[1], 'r')
     analyzer = Analyzer(csv_file)
     analyzer.read_csv()
-
-    print(analyzer.n_blocks)
-    print(analyzer.n_inodes)
-    print(analyzer.inode_per_group)
 
     csv_file.close()
