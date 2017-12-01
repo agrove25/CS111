@@ -1,0 +1,66 @@
+NAME: Andrew Grove, Weimou He
+EMAIL: koeswantoandrew@gmail.com, weimouhe@gmail.com
+ID: 304785991, 304737405
+
+-------------- Description of the Files ---------------------
+
+lab3a.c:
+  The source code that will generate the lab3a executable. This
+  creates a program that requires one argument:
+
+  [name of valid image file]
+
+  This program will, read through a given EXT2_file_system. What it
+  will do is create go through the file system, and give the following
+  information:
+
+  1.  information about the superblock in the given output:
+
+      SUPERBLOCK,[number of blocks],[number of inodes],[block size],
+      [inode size],[blocks per group],[inodes per group],[first
+      unreserved inode].
+
+  2.  infomration about the single group:
+
+      GROUP,[group number],[total no. of blocks],[total no. of inodes],
+      [no. of free blocks],[no. of free inodes],[block number of free
+      block bitmap],[block no. of free inode bitmap],[block no. of
+      first block of inodes].
+
+  3.  information about free blocks:
+
+      BFREE,[number of free block]
+
+  4.  information about free inode:
+
+      IFREE,[number of free inode]
+
+  5.  information about inodes:
+
+      INODE,[inode number],[file type],[mode],[owner],[group],
+      [link count],[time of inode change],[modification time],
+      [time of last access],[file size],[number of blocks],
+      [block addresses]
+
+  6.  information about directory:
+
+      DIRENT,[parent inode],[byte offset],[inode number],[entry
+      length],[name length],[name]
+
+  7.  information about indirect block addresses
+
+      INDIRECT,[inode no.],[level of indirection],[logical block
+      offset],[block number of the indirect block],[block number].
+
+ext2_fs.h
+  gives structures that are used in the EXT2 file system, to be used
+  in the c program.
+
+Makefile
+  This file creates the necessary executables if ran in the default
+  state (make). It also supports two more options: clean (which erases
+  all extraneous data from the directory), dist (which creates the tar
+  file that is needed to upload).
+
+README
+  gives information about the files inside of the tar.gz file.
