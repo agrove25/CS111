@@ -216,35 +216,38 @@ def analyze_dirent():
     global free_inodes, dirents, nonzero_inodes, superblock
 
     findItsParent = {}
-    count_linked_to_inode = {};
+    count_linked_to_inode = {}
         
-    
+      
+       
+
+
+# check invalid, unallocated, and unconsistance inode
     for dirent in dirents:
-        #if this dirent inode is allocated:
-        if  (dirent.ref_inode_num not in freeInodes) and (dirent.ref_inode_num in allocated_inode_num): 
-            findItsParent[dirent.ref_inode_num] = dirent.parent_inode_num
-            #record what inode it refers to, increment refer count
-            count_linked_to_inode[dirent.ref_inode_num] = count_linked_to_inode.get(dirent.entry_inode_num,0) + 1
+        if (dirent.ref_inode_num < 1 ) or (dirent.ref_inode_num > superblock.n_inodes):
+            print("DIRECTORY INODE {} NAME {} INVALID INODE {}".format(dirent.parent_inode_num, dirent.name, dirent.ref_inode_num))
+            
+        elif (dirent.ref_inode_num not in allocated_inode_num):
+            print("DIRECTORY INODE {} NAME {} UNALLOCATED INODE {}".format(dirent.parent_inode_num, dirent.name, dirent.ref_inode_num))
+
+        else:
+            if dirent.ref_inode_num not in count_linked_to_inode:
+           # if (dirent.name != "'..'") and (dirent.name != "'.'"):
+                findItsParent[dirent.ref_inode_num] = dirent.parent_inode_num
+            count_linked_to_inode[dirent.ref_inode_num] = count_linked_to_inode.get(dirent.ref_inode_num,0) + 1
             
     for inode in nonzero_inodes:    #for every "d", "f", "s" or "?" inodes
         if (inode.inode_num in count_linked_to_inode) and (inode.link_count != count_linked_to_inode[inode.inode_num]):
             print("INODE {} HAS {} LINKS BUT LINKCOUNT IS {}".format(inode.inode_num, count_linked_to_inode[inode.inode_num], inode.link_count))
 
-        elif inode.inode_num not in count_linked_to_inode and (inode.link_count !=0 ):
+        elif (inode.inode_num not in count_linked_to_inode) and (inode.link_count !=0 ):
             print("INODE {} HAS 0 LINKS BUT LINKCOUNT IS {}".format(inode.inode_num, inode.link_count))
-
-# check invalid, unallocated, and unconsistance inode
-    for dirent in dirents:
-        if (dirent.ref_inode_num not in allocated_inode_num) or (dirent.ref_inode_num in free_inodes):
-            print("DIRECTORY INODE {} NAME {} UNALLOCATED INODE {}".format(dirent.parent_inode_num, dirent.name, dirent.ref_inode_num))
-        
-        if (dirent.ref_inode_num < 1 ) or (dirent.ref_inode_num > superblock.n_inodes):
-            print("DIRECTORY INODE {} NAME {} INVALID INODE {}".format(dirent.parent_inode_num, dirent.name, dirent.ref_inode_num))
-        
-        if (dirent.name = "'..'") and (dirent.parent_inode_num in findItsParent) and  (findItsParent[dirent.parent_inode_num] != dirent.ref_inode_num):
+            
+    for dirent in dirents:      
+        if (dirent.name == "'..'") and (dirent.parent_inode_num in findItsParent) and  (findItsParent[dirent.parent_inode_num] != dirent.ref_inode_num):
             print("DIRECTORY INODE {} NAME '..' LINK TO INODE {} SHOULD BE {}".format(dirent.parent_inode_num, dirent.ref_inode_num, findItsParent[dirent.parent_inode_num]))
 
-        if (dirent.name = "'.'") and (dirent.parent_inode_num != dirent.ref_inode_num):
+        if (dirent.name == "'.'") and (dirent.parent_inode_num != dirent.ref_inode_num):
             print("DIRECTORY INODE {} NAME '.' LINK TO INODE {} SHOULD BE {}".format(dirent.parent_inode_num, dirent.ref_inode_num, dirent.parent_inode_num))
  
         
