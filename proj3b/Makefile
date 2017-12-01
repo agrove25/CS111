@@ -1,8 +1,9 @@
 default:
 	echo "Please find the lab3b file in the tar.gz (shell script)"
 
+
 dist: default
 	tar -czvf lab3b-304785991.tar.gz Makefile lab3b.py README lab3b
 
 clean:
-	rm lab3b-304785991.tar.gz lab3b
+	rm lab3b-304785991.tar.gz

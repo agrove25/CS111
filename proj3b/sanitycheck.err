@@ -1,0 +1,183 @@
+... using test directory /tmp/CS111_test.grovea
+... extracting /u/cs/ugrad/grovea/GitHub/CS111/proj3b/lab3b-304785991.tar.gz
+Makefile
+lab3b.py
+README
+lab3b
+... checking for README file
+... checking for submitter ID in README
+... checking for submitter email in README
+... checking for submitter name in README
+... checking for other expected files
+... checking for required Make targets
+... building default target(s)
+echo "Please find the lab3b file in the tar.gz (shell script)"
+Please find the lab3b file in the tar.gz (shell script)
+chmod +x lab3b
+... deleting programs and data to force rebuild
+... checking make dist
+echo "Please find the lab3b file in the tar.gz (shell script)"
+Please find the lab3b file in the tar.gz (shell script)
+chmod +x lab3b
+ERROR: make dist did not produce lab3b-304785991.tar.gz
+ ... checking make clean
+rm lab3b-304785991.tar.gz lab3b
+/tmp/DIRSNAP.23312 /tmp/DIRCHECK.23312 differ: byte 11, line 3
+Incorrect directory contents:
+3d2
+< lab3b
+... redo default make
+echo "Please find the lab3b file in the tar.gz (shell script)"
+Please find the lab3b file in the tar.gz (shell script)
+chmod +x lab3b
+... checking for expected products
+... lab3b detects/reports bogus arguments
+    ./P3B_check.sh: line 174: ./lab3b: No such file or directory
+... lab3b detects/reports non-existent input image
+    RC!=0 ... OK
+    ./P3B_check.sh: line 189: ./lab3b: No such file or directory
+
+... executing test case P3B-test_1
+        incorrect output for 1.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+INVALID BLOCK 65 IN INODE 13 AT OFFSET 0
+==========
+... executing test case P3B-test_2
+        incorrect output for 2.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+INVALID INDIRECT BLOCK 65 IN INODE 13 AT OFFSET 12
+==========
+... executing test case P3B-test_3
+        incorrect output for 3.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+INVALID DOUBLE INDIRECT BLOCK 65 IN INODE 13 AT OFFSET 268
+==========
+... executing test case P3B-test_4
+        incorrect output for 4.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+INVALID TRIPLE INDIRECT BLOCK 65 IN INODE 13 AT OFFSET 65804
+==========
+... executing test case P3B-test_5
+        incorrect output for 5.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+RESERVED BLOCK 3 IN INODE 13 AT OFFSET 0
+==========
+... executing test case P3B-test_6
+        incorrect output for 6.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+RESERVED INDIRECT BLOCK 3 IN INODE 13 AT OFFSET 12
+==========
+... executing test case P3B-test_7
+        incorrect output for 7.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+RESERVED DOUBLE INDIRECT BLOCK 3 IN INODE 13 AT OFFSET 268
+==========
+... executing test case P3B-test_8
+        incorrect output for 8.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+RESERVED TRIPLE INDIRECT BLOCK 3 IN INODE 13 AT OFFSET 65804
+==========
+... executing test case P3B-test_9
+        incorrect output for 9.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+UNREFERENCED BLOCK 41
+==========
+... executing test case P3B-test_10
+        incorrect output for 10.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+ALLOCATED BLOCK 8 ON FREELIST
+==========
+... executing test case P3B-test_11
+        incorrect output for 11.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+DUPLICATE BLOCK 8 IN INODE 13 AT OFFSET 0
+DUPLICATE BLOCK 8 IN INODE 2 AT OFFSET 0
+==========
+... executing test case P3B-test_12
+        incorrect output for 12.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+DUPLICATE BLOCK 8 IN INODE 2 AT OFFSET 0
+DUPLICATE INDIRECT BLOCK 8 IN INODE 13 AT OFFSET 12
+==========
+... executing test case P3B-test_13
+        incorrect output for 13.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+DUPLICATE BLOCK 8 IN INODE 2 AT OFFSET 0
+DUPLICATE DOUBLE INDIRECT BLOCK 8 IN INODE 13 AT OFFSET 268
+==========
+... executing test case P3B-test_14
+        incorrect output for 14.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+DUPLICATE BLOCK 8 IN INODE 2 AT OFFSET 0
+DUPLICATE TRIPLE INDIRECT BLOCK 8 IN INODE 13 AT OFFSET 65804
+==========
+... executing test case P3B-test_15
+        incorrect output for 15.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+UNALLOCATED INODE 18 NOT ON FREELIST
+==========
+... executing test case P3B-test_16
+        incorrect output for 16.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+ALLOCATED INODE 2 ON FREELIST
+==========
+... executing test case P3B-test_17
+        incorrect output for 17.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+INODE 18 HAS 0 LINKS BUT LINKCOUNT IS 1
+==========
+... executing test case P3B-test_18
+        incorrect output for 18.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+DIRECTORY INODE 2 NAME 'bogusEntry' INVALID INODE 26
+==========
+... executing test case P3B-test_19
+        incorrect output for 19.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+DIRECTORY INODE 2 NAME 'nullEntry' UNALLOCATED INODE 18
+==========
+... executing test case P3B-test_20
+        incorrect output for 20.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+INODE 2 HAS 4 LINKS BUT LINKCOUNT IS 5
+==========
+... executing test case P3B-test_21
+        incorrect output for 21.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+INODE 2 HAS 4 LINKS BUT LINKCOUNT IS 3
+==========
+... executing test case P3B-test_22
+        incorrect output for 22.csv
+YOUR OUTPUT ...
+EXPECTED OUTPUT ...
+DIRECTORY INODE 2 NAME '..' LINK TO INODE 11 SHOULD BE 2
+==========
+
+THE ONLY STUDENTS WHO WILL RECEIVE CREDIT FOR THIS SUBMISSION ARE:
+    304785991    koeswantoandrew@gmail.com
+    304737405    weimouhe@gmail.com
+
+... removing test directory /tmp/CS111_test.grovea
+
+SUBMISSION lab3b-304785991.tar.gz ... FAILS sanity check with 29 errors
