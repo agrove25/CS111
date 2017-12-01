@@ -18,7 +18,7 @@ used_blocks = []                 # used to check for unref and alloc
 blocks = {}                      # used to check for duplicates
 nonzero_inodes = []
 allocated_inode_num = {}
-
+all_inode_num = {}
 
 # -------------- CSV FILE CLASSES ---------------------#
 class Superblock:
@@ -64,7 +64,7 @@ class Inode:
             #these two is basically the same thing, but one is for inode search and another is for inode_num search
             nonzero_inodes.append(self)
             allocated_inode_num[self.inode_num] = self.inode_num
-            
+        all_inode_num[self.inode_num] = self.inode_num   
 
 class Dirent:
     def __init__(self, entry):
@@ -204,13 +204,18 @@ def analyze_blocks():
 
 
 def analyze_inodes():
-    global free_inodes
+    global free_inodes,inodes,superblock, all_inode_num
 
     for inode in inodes:
         if inode.inode_num not in free_inodes and (inode.inode_file == '0'):
                 print("UNALLOCATED INODE {} NOT ON FREELIST".format(inode.inode_num))
         elif inode.inode_num in free_inodes and (inode.inode_file !='0'):
                 print("ALLOCATED INODE {} ON FREELIST".format(inode.inode_num))
+
+    #for all the non-reserved inode, if it's not in free_inode or listed by INODE, then it's unallocated.
+    for x in range(superblock.first_nonreserved_inode, superblock.n_inodes):
+        if (x not in free_inodes) and ( x not in  all_inode_num):
+              print("UNALLOCATED INODE {} NOT ON FREELIST".format(x))
 
 def analyze_dirent():
     global free_inodes, dirents, nonzero_inodes, superblock
