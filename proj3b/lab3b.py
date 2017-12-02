@@ -64,7 +64,7 @@ class Inode:
             #these two is basically the same thing, but one is for inode search and another is for inode_num search
             nonzero_inodes.append(self)
             allocated_inode_num[self.inode_num] = self.inode_num
-        all_inode_num[self.inode_num] = self.inode_num   
+        all_inode_num[self.inode_num] = self.inode_num
 
 class Dirent:
     def __init__(self, entry):
@@ -222,16 +222,12 @@ def analyze_dirent():
 
     findItsParent = {}
     count_linked_to_inode = {}
-        
-      
-       
 
-
-# check invalid, unallocated, and unconsistance inode
+    # check invalid, unallocated, and unconsistance inode
     for dirent in dirents:
         if (dirent.ref_inode_num < 1 ) or (dirent.ref_inode_num > superblock.n_inodes):
             print("DIRECTORY INODE {} NAME {} INVALID INODE {}".format(dirent.parent_inode_num, dirent.name, dirent.ref_inode_num))
-            
+
         elif (dirent.ref_inode_num not in allocated_inode_num):
             print("DIRECTORY INODE {} NAME {} UNALLOCATED INODE {}".format(dirent.parent_inode_num, dirent.name, dirent.ref_inode_num))
 
@@ -240,25 +236,34 @@ def analyze_dirent():
            # if (dirent.name != "'..'") and (dirent.name != "'.'"):
                 findItsParent[dirent.ref_inode_num] = dirent.parent_inode_num
             count_linked_to_inode[dirent.ref_inode_num] = count_linked_to_inode.get(dirent.ref_inode_num,0) + 1
-            
+
     for inode in nonzero_inodes:    #for every "d", "f", "s" or "?" inodes
         if (inode.inode_num in count_linked_to_inode) and (inode.link_count != count_linked_to_inode[inode.inode_num]):
             print("INODE {} HAS {} LINKS BUT LINKCOUNT IS {}".format(inode.inode_num, count_linked_to_inode[inode.inode_num], inode.link_count))
 
         elif (inode.inode_num not in count_linked_to_inode) and (inode.link_count !=0 ):
             print("INODE {} HAS 0 LINKS BUT LINKCOUNT IS {}".format(inode.inode_num, inode.link_count))
-            
-    for dirent in dirents:      
+
+    for dirent in dirents:
         if (dirent.name == "'..'") and (dirent.parent_inode_num in findItsParent) and  (findItsParent[dirent.parent_inode_num] != dirent.ref_inode_num):
             print("DIRECTORY INODE {} NAME '..' LINK TO INODE {} SHOULD BE {}".format(dirent.parent_inode_num, dirent.ref_inode_num, findItsParent[dirent.parent_inode_num]))
 
         if (dirent.name == "'.'") and (dirent.parent_inode_num != dirent.ref_inode_num):
             print("DIRECTORY INODE {} NAME '.' LINK TO INODE {} SHOULD BE {}".format(dirent.parent_inode_num, dirent.ref_inode_num, dirent.parent_inode_num))
- 
-        
+
+
 if __name__ == "__main__":
+    if (len(sys.argv) != 2):
+        sys.stderr.write("Incorrect number of arguments. Requires csv file")
+        exit(1)
+
     # Initial Variable Setup
-    csv_file = open(sys.argv[1], 'r')
+    try:
+        csv_file = open(sys.argv[1], 'r')
+    except:
+        sys.stderr.write("Invalid file.")
+        exit(1)
+
     reader = Reader(csv_file)
     writer = Writer()
     reader.read_csv()
@@ -269,5 +274,5 @@ if __name__ == "__main__":
     analyze_inodes()
 
     analyze_dirent()
-    
+
     csv_file.close()

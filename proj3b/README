@@ -4,57 +4,41 @@ ID: 304785991, 304737405
 
 -------------- Description of the Files ---------------------
 
-lab3a.c:
-  The source code that will generate the lab3a executable. This
+lab3b.c:
+  The source code that will generate the lab3b executable. This
   creates a program that requires one argument:
 
-  [name of valid image file]
+  [name of csv file]
 
-  This program will, read through a given EXT2_file_system. What it
-  will do is create go through the file system, and give the following
-  information:
+  This program will read through a given EXT2_file_system summary, like
+  one that we created last class. It will audit this file, and make sure
+  everything is consistent. If not, it will print out a messages as
+  follows:
 
-  1.  information about the superblock in the given output:
+    1.  INVALID BLOCK [B.NUM] IN INODE [I.NUM] AT OFFSET [OFFSET NUM]
+          * including indirect block variants *
 
-      SUPERBLOCK,[number of blocks],[number of inodes],[block size],
-      [inode size],[blocks per group],[inodes per group],[first
-      unreserved inode].
+    2.  RESERVED BLOCK [B.NUM] IN INODE [I.NUM] AT OFFSET [OFFSET NUM]
+          * including indirect block variants *
 
-  2.  infomration about the single group:
+    3.  UNREFERENCED BLOCK [B.NUM]
 
-      GROUP,[group number],[total no. of blocks],[total no. of inodes],
-      [no. of free blocks],[no. of free inodes],[block number of free
-      block bitmap],[block no. of free inode bitmap],[block no. of
-      first block of inodes].
+    4.  ALLOCATED BLOCK [B.NUM] ON FREELIST
 
-  3.  information about free blocks:
+    5.  DUPLICATE BLOCK [B.NUM] IN INODE [I.NUM] AT OFFSET [OFFSET NUM]
+          * including indirect block variants *
 
-      BFREE,[number of free block]
+    6.  (UN)ALLOCATED INODE [I.NUM] (NOT) ON FREE LIST
 
-  4.  information about free inode:
+    7.  INODE (I.NUM) HAS (#) LINKS BUT LINKCOUNT IS (#)
 
-      IFREE,[number of free inode]
+    8.  DIRECTORY INODE (I.NUM) NAME (STRING) UNALLOCATED INODE (#)
 
-  5.  information about inodes:
+    9.  DIRECTORY INODE (I.NUM) NAME (STRING) INVALID INDOE (#)
 
-      INODE,[inode number],[file type],[mode],[owner],[group],
-      [link count],[time of inode change],[modification time],
-      [time of last access],[file size],[number of blocks],
-      [block addresses]
+    10. DIRECTORY INODE (I.NUM) NAME '..' LINK TO INODE (#) SHOULD BE (#)
 
-  6.  information about directory:
-
-      DIRENT,[parent inode],[byte offset],[inode number],[entry
-      length],[name length],[name]
-
-  7.  information about indirect block addresses
-
-      INDIRECT,[inode no.],[level of indirection],[logical block
-      offset],[block number of the indirect block],[block number].
-
-ext2_fs.h
-  gives structures that are used in the EXT2 file system, to be used
-  in the c program.
+    11. DIRECTORY INODE (I.NUM) NAME '.' LINK TO INODE (#) SHOULD BE (#)
 
 Makefile
   This file creates the necessary executables if ran in the default

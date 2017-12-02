@@ -1,1 +1,0 @@
-python3.6 ./lab3b.py $1
