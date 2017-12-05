@@ -24,6 +24,10 @@
 #include <errno.h>
 #include <netdb.h>
 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
+
 // options
 bool running = true;
 char scale = 'f';
@@ -42,6 +46,8 @@ char* host = "";
 struct hostent *server;
 struct sockaddr_in server_in;
 char* id = "";
+
+SSL* ssl;
 
 void setupLogging();
 void printID();
@@ -147,6 +153,23 @@ void createSocket() {
       int err = errno;
       handleError("createSocket (connect)", err);
   }
+
+  // SETTING UP SSL
+  SSL_library_init();
+  SSL_load_error_strings();
+  OpenSSL_add_all_algorithms();
+  SSL_CTX* ssl_context = SSL_CTX_new(SSLv23_client_method());
+  ssl = SSL_new(ssl_context);
+
+  if (SSL_set_fd(ssl, sockfd) == 0) {
+    int err = errno;
+    handleError("createSocket (ssl binding)", err);
+  }
+
+  if (SSL_connect(ssl) != 1) {
+    int err = errno;
+    handleError("createSocket (ssl connect)", err);
+  }
 }
 
 void setupLogging() {
@@ -202,12 +225,12 @@ void printID() {
   char* buffer;
   int size = sprintf(buffer, "ID=%s\n", id);
   write(1, buffer, size);
-  write(sockfd, buffer, size);
+  SSL_write(ssl, buffer, size);
 }
 
 void modify() {
   char string[256];
-  int strSize = read(sockfd, string, 256);
+  int strSize = SSL_read(ssl, string, 256);
   string[strSize] = '\0';
   
   int start = 0;
@@ -227,7 +250,6 @@ void modify() {
 
     }
   }
-
 }
 
 bool parse(char string[256]) {
@@ -305,13 +327,12 @@ void getTemperature() {
   char buffer[50];
   int bufferSize = sprintf(buffer, "%.2d:%.2d:%.2d %.1f\n", currTime->tm_hour, currTime->tm_min, currTime->tm_sec, temperature);
   write(1, buffer, bufferSize);
-  write(sockfd, buffer, bufferSize);
+  SSL_write(ssl, buffer, bufferSize);
   //fprintf(stderr, "Temperature gotten..\n");
   return;
 }
 
 void turn_off() {
-  //fprintf(stderr, "Button Pressed\n");
   time_t rawTime = time(NULL);
   struct tm * currTime;
   currTime = localtime(&rawTime);
@@ -319,10 +340,11 @@ void turn_off() {
   char buffer[50];
   int bufferSize = sprintf(buffer, "%.2d:%.2d:%.2d SHUTDOWN\n\n", currTime->tm_hour, currTime->tm_min, currTime->tm_sec);
   write(1, buffer, bufferSize - 1);
-  write(sockfd, buffer, bufferSize - 1);
+  SSL_write(ssl, buffer, bufferSize - 1);
 
   mraa_aio_close(tempSensor);
   close(sockfd);
+  SSL_shutdown(ssl);
 
   _exit(0);
 }

@@ -82,4 +82,7 @@ int main() {
   }
 
   fprintf(stderr, "Messages have been sent.\n");
+
+  close(sockfd);
+  exit(0);
 }

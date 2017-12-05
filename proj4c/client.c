@@ -52,10 +52,12 @@ int main() {
 
 
   write(sockfd, "ID=100110011\n", 13);
-  for (int i = 0; i < 10; i++) {
+  int i;
+  for (i = 0; i < 10; i++) {
     write(sockfd, "Hello\n", 6);
   }
 
-
+  close(sockfd);
+  exit(0);
 
 }
