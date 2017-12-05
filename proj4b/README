@@ -4,117 +4,46 @@ ID: 304785991
 
 -------------- Description of the Files ---------------------
 
-lab2_list.c:
-  The source code that will generate the lab2_list executable. This
+lab4b_list.c:
+  The source code that will generate the lab4b executable. This
   creates a program that accepts four arguments:
 
-  --threads=number-of-threads
-  --iterations=number-of-iterations
-  --yield=[i, d, l] (or any combination of the three)
-  --sync=[m, s]
-  --lists=number-of-lists
+  --scale=[F/C]
+  --period=seconds
+  --log=logfile
+  
+  This program will utilize the BeagleBone software and sensors
+  to repeatedly, every (period) seconds, read the temperature. If
+  it is given a log argument, it will input that reading into the
+  logfile, otherwise it will redirect it to standard output. This
+  temperature reading will be in Farenheit (default), or if specified
+  in the scale argument, Celsius.
 
-  This program will, for an inputted number of threads (default 1),
-  do an inputted number of operations (also default 1). From a
-  previously generated list of SortedListElement (which was given)
-  it will insert all of them into a global linked list, lookup all of
-  them then delete all of them. The yield options specify which
-  critical periods to yield in, i.e. the insert, delete, or lookup.
-  The sync options specify which synchronization function to use
-  in order to prevent data races, m being a mutex and s being a spin
-  lock. The list options will split the master list into a number
-  of sublists, in order to create more fine locks (allowing
-  for more threads to run at the same time).
+  This program also has an added functionality where it can change
+  its behavior while it is running. It can do one of six things:
 
-  It will then output the results in a manner that can be
-  used in the following gnuplots. The output is as follows:
+    1.  SCALE=F   :: changes readings to farenheit
+    2.  SCALE=C   :: changes readings to celsius
+    3.  PERIOD=n  :: changes period to n seconds
+    4.  STOP      :: pauses the readings
+    5.  START     :: unpauses the readings again (every n seconds)
+    6.  OFF       :: shuts the program off and logs SHUTDOWN
 
-  description, nThreads, nIterations, number-of-Lists, totalOps,
-    totalTime, timePerOp, avgWaitTime
-
-SortedList.h:
-  the given header functions, which specify the interface needed
-  for SortedList.c.
-
-SortedList.c:
-  the implementation for the linked list used in lab2_list. Implements
-  the insert, delete, lookup, and length functions.
+  Additionally, if the button is pressed (if the button is plugged
+  into port GPIO_50), it will shut the program off, and log when
+  it turned off.
 
 Makefile:
-This file creates the necessary executables if ran in the default state
-(make). It also supports four more options: clean (which erases all
-extraneous data from the directory), dist (which creates the tar file
-that is needed to upload), tests (which runs all the tests and inserts
-into the csv file), and graph (which creates the gnuplot).
+  This file creates the necessary executables if ran in the default 
+  state (make). It also supports four more options: clean (which erases 
+  all extraneous data from the directory), dist (which creates the tar 
+  file that is needed to upload), check (a smoke test to make sure the
+  program can receive input).
 
-lab2_list.csv
-  the results of the tests (used to make the graphs). These tests
-  are found in the Makefile (make tests).
+check.sh:
+  a simple test to make sure that the logfile function works and
+  that we can input things while the program is running, and the
+  log file will have traces of said input.
 
-lab2_add.gp
-lab2_list.gp
-  a given script that creates the gnuplot (in accordance with the spec)
-
-*.png
-  all the graphs that were generated, shows a multitude of things
-  that are outlined in the spec (and the title of the graph).
-
-profile.out
-  shows a breakdown of the methods that take up the most amount
-  of time (for the spin-lock variant of the program)
-
-  NOTE: due to issues in the list argument for the gperftools (pprof),
-    as outlined in Piazza, I was unable to complete the instruction
-    breakdown.
-
---------------- Answers to the Questions -----------------
-
-Question 2.3.1
-  In the 1, 2 thread case, most of the time is being spent on the
-  list operations (insert, lookup, length, and delete), because
-  the low number of threads makes it so that context switches and
-  being locked out occurs rarely.
-
-  In high thread spin-lock tests, acquiring the lock takes the longest
-  amount of time. This is because with the large number of threads,
-  it is very likely that any given thread will be locked out of working
-  on that list, which also makes any context switches useless. For
-  example, if thread 1 is working on a list, and yields, threads 2-n
-  must then spin, do nothing, then switch out.
-
-  The same goes for mutex tests, where although it does not spin,
-  it still must wait for the other threads to finish whatever they
-  are doing.
-
-Question 2.3.2
-  The locking mechanism takes the longest time for the spin-lock
-  version (i.e. waiting to be able to acquire the lock).
-
-  This operation becomes the most expensive because most of the time
-  the CPU is doing nothing productive, thereby making it take longer
-  to finish up the entire task (see the example above).
-
-Question 2.3.3
-  With more threads, there are more things that are waiting on a
-  single lock, and as such it will take much longer for any single
-  one to get it.
-
-  The longer it has to wait, the more the entire system has to wait.
-  As such, an increase in wait time is naturally an increase in
-  completion time per operation.
-
-  This is because the wait time is waiting time per thread. If one
-  thread is working on the list, (n-1) threads are waiting,
-  and therefore adding to the total wait time.
-
-Question 2.3.4
-  More lists means more locks, which allows multiple threads to
-  work on the same big list and not having to wait for each other.
-
-  It should continue increasing, to a point. If the number of lists
-  is so large that no threads are waiting for each other, then
-  increasing the number of lists will do nothing.
-
-  No. This is because multiple CPUs can now work on the operations
-  that are described, instead of being limited to one thread with one
-  CPU.
+README:
+  this file, outlining the files within the tar.gz.

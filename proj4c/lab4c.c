@@ -123,7 +123,7 @@ void setupLogging() {
 }
 
 void setupPoller() {
-  poller.fd = 0;
+  poller.fd = sockfd;
   poller.events = POLLIN;
 }
 
@@ -233,9 +233,18 @@ void getTemperature() {
 }
 
 int main(int argc, char *argv[]) {
-	processArguments(argc, argv);
+	fprintf(stderr, "hello.");
+
+
+  processArguments(argc, argv);
+  
   createSocket();
+
+
   setupPoller();
   setupSensors();
+
+  fprintf(sockfd, "ID: 100110011");
+
   run();
 }

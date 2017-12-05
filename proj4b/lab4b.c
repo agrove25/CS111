@@ -30,8 +30,9 @@ struct pollfd poller;
 mraa_aio_context tempSensor;
 mraa_gpio_context button;
 
-void buttonPress();
+void shutdown();
 void setupLogging();
+bool parse();
 
 void handleError(char loc[256], int err) {
   fprintf(stderr, "Error encountered in ");
@@ -54,8 +55,6 @@ void processArguments(int argc, char* argv[]) {
   };
 
   while ( (opt = getopt_long(argc, argv, "s:p:l:", long_options, NULL)) != 255 ) {
-    fprintf(stderr, "%d", opt);
-
     switch(opt) {
         case 's': scale = optarg[0]; break;
         case 'p': period = atoi(optarg); break;
@@ -98,13 +97,16 @@ void setupSensors() {
 
   button = mraa_gpio_init(60);
   mraa_gpio_dir(button, MRAA_GPIO_IN);
-  mraa_gpio_isr(button, MRAA_GPIO_EDGE_RISING, &buttonPress, NULL);
+  mraa_gpio_isr(button, MRAA_GPIO_EDGE_RISING, &shutdown, NULL);
 }
 
 void run() {
   int poll_result;
 
   while(1) {
+    if (running)
+        getTemperature();
+
     poll_result = poll(&poller, 1, 0);
     if (poll_result < 0) {
       handleError("run (poll)", errno);
@@ -114,8 +116,8 @@ void run() {
       modify();
     }
 
-    if(running) {
-      getTemperature();
+    
+    if (running) {
       sleep(period);
     }
   }
@@ -125,30 +127,50 @@ void modify() {
   char string[256];
   int strSize = read(0, string, 256);
   string[strSize] = '\0';
+  
+  int start = 0;
+  int j;
+  for (j = 0; j < strSize; j++) {
+    if (string[j] == '\n') {
+      string[j] = '\0';
 
-  if (strcmp(string, "SCALE=F\n") == 0) {
+      if (parse(string + start)) {
+        write(1, string + start, j - start);
+        write(1, "\n", 1);
+      }
+
+      start = j + 1;
+
+    }
+  }
+
+}
+
+bool parse(char string[256]) {
+  if (strcmp(string, "SCALE=F") == 0) {
     scale = 'f';
     //fprintf(stderr, "Changing Scale to Farenheit...\n");
   }
-  else if (strcmp(string, "SCALE=C\n") == 0) {
+  else if (strcmp(string, "SCALE=C") == 0) {
     scale = 'c';
     //fprintf(stderr, "Changing Scale to Celsius...\n");
   }
-  else if (strcmp(string, "SCALE=F\n") == 0) {
+  else if (strcmp(string, "SCALE=F") == 0) {
     scale = 'f';
     //fprintf(stderr, "Changing Scale to Farenheit...\n");
   }
-  else if (strcmp(string, "START\n") == 0) {
+  else if (strcmp(string, "START") == 0) {
     running = true;
     //fprintf(stderr, "Starting...\n");
   }
-  else if (strcmp(string, "STOP\n") == 0) {
+  else if (strcmp(string, "STOP") == 0) {
     running = false;
     //fprintf(stderr, "Stopping...\n");
   }
-  else if (strcmp(string, "OFF\n") == 0) {
-    getTemperature();
-    write(1, string, strSize);
+  else if (strcmp(string, "OFF") == 0) {
+    char buffer[5] = "OFF\n";
+    write(1, buffer, 5);
+    shutdown();
     exit(0);
   }
   else {
@@ -156,7 +178,7 @@ void modify() {
     char checker[8] = "PERIOD=";
     for (i = 0; i < 7; i++) {
       if (string[i] != checker[i]) {
-        return;
+        return false;
       }
     }
 
@@ -164,10 +186,10 @@ void modify() {
     for (; true; i++) {
       if (isdigit(string[i]))
         number[i-7] = string[i];
-      else if (string[i] == '\n')
+      else if (string[i] == '\0')
         break;
       else
-        return;
+        return false;
     }
 
     number[i-7] = '\0';
@@ -175,7 +197,7 @@ void modify() {
     //fprintf(stderr, "Changing Period to %d\n", period);
   }
 
-  write(1, string, strSize);
+  return true;
 }
 
 void getTemperature() {
@@ -193,17 +215,28 @@ void getTemperature() {
      temperature = temperature * 1.8 + 32;
   }
 
-  fprintf(1, "%.2d:%.2d:%.2d %.1f\n", currTime->tm_hour, currTime->tm_min, currTime->tm_sec, temperature);
 
+
+  char buffer[50];
+  int bufferSize = sprintf(buffer, "%.2d:%.2d:%.2d %.1f\n", currTime->tm_hour, currTime->tm_min, currTime->tm_sec, temperature);
+  write(1, buffer, bufferSize);
   //fprintf(stderr, "Temperature gotten..\n");
   return;
 }
 
-void buttonPress() {
+void shutdown() {
   //fprintf(stderr, "Button Pressed\n");
-  getTemperature();
+  time_t rawTime = time(NULL);
+  struct tm * currTime;
+  currTime = localtime(&rawTime);
+
+  char buffer[50];
+  int bufferSize = sprintf(buffer, "%.2d:%.2d:%.2d SHUTDOWN\n", currTime->tm_hour, currTime->tm_min, currTime->tm_sec);
+  write(1, buffer, bufferSize);
+
   exit(0);
 }
+
 
 int main(int argc, char *argv[]) {
 	processArguments(argc, argv);

@@ -50,6 +50,12 @@ else
 fi
 
 # make sure the tarball has the right name
+tarball="$LAB-$student.tar.gz"
+if [ ! -s $tarball ]
+then
+	echo "ERROR: Unable to find submission tarball:" $tarball
+	exit 1
+fi
 
 # get copy of our grading/checking functions
 if [ -s functions.sh ]; then
@@ -262,4 +268,4 @@ done
 echo
 
 # delete temp files, report errors, and exit
-#cleanup $$ $errors
+cleanup $$ $errors
