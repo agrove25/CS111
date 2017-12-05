@@ -1,2 +1,2 @@
 default:
-	gcc -lmraa -lm -w -Wall -Wextra -o lab4c_tcp lab4c.c 
+	gcc -g -lmraa -lm -w -Wall -Wextra -o lab4c_tcp lab4c.c 

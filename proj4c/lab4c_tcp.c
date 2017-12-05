@@ -28,7 +28,7 @@
 bool running = true;
 char scale = 'f';
 int period = 1;
-char* logFile = "";
+char* logFile;
 
 struct pollfd poller;
 
@@ -37,15 +37,13 @@ mraa_aio_context tempSensor;
 // server stuff
 int sockfd;
 int port = 18000;
-char* host = "";
+char* host = "lever.cs.ucla.edu";
 
 struct hostent *server;
 struct sockaddr_in server_in;
-char* id = "";
+
 
 void setupLogging();
-void printID();
-bool parse();
 
 void handleError(char loc[256], int err) {
   fprintf(stderr, "Error encountered in ");
@@ -59,68 +57,30 @@ void handleError(char loc[256], int err) {
 void processArguments(int argc, char* argv[]) {
   char opt;
 
-  bool doubleArg = false;
-  int i;
-  for (i = 1; i < argc; i++) {
-    if (argv[i][0] != '-') {
-      if (doubleArg) {
-        fprintf(stderr, "Invalid arguments.\n");
-        exit(1);
-      }
-
-      doubleArg = true;
-      port = atoi(argv[i]);
-      fprintf(stderr, "Port: %d\n", atoi(argv[i]));
-    }
-  }
-
-  if (!doubleArg) {
-    fprintf(stderr, "Requires a port.\n");
-    exit(1);
-  }
-
-
   static struct option long_options[] =
   {
     {"scale", required_argument, NULL, 's'},
     {"period", required_argument, NULL, 'p'},
     {"log", required_argument, NULL, 'l'},
-    {"id", required_argument, NULL, 'i'},
-    {"host", required_argument, NULL, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ( (opt = getopt_long(argc, argv, "s:p:l:i:h:", long_options, NULL)) != 255 ) {
+  while ( (opt = getopt_long(argc, argv, "s:p:l:", long_options, NULL)) != 255 ) {
+    fprintf(stderr, "%d", opt);
+
     switch(opt) {
         case 's': scale = optarg[0]; break;
         case 'p': period = atoi(optarg); break;
         case 'l': logFile = optarg; setupLogging(); break;
-        case 'i': id = optarg; break;
-        case 'h': host = optarg; break;
 
         default:  fprintf(stderr, "Usage : server [OPTION] = [ARGUMENT]\n");
-                  fprintf(stderr, "OPTION: \n\t--scale=[f/c]\
+  			          fprintf(stderr, "OPTION: \n\t--scale=[f/c]\
                                   \n\t--period=seconds\
-                                  \n\t--log=logfile\
-                                  \n\t--id=idnum\
-                                  \n\t--host=hostid\n");
-                  exit(1);
-                  break;
+                                  \n\t--log=logfile\n");
+  			          exit(1);
+  			          break;
 
     }
-  }
-
-  if (id == "") {
-    fprintf(stderr, "Requires an id.\n");
-    exit(1);
-  }
-  if (host == "") {
-    fprintf(stderr, "Requires a hostname.\n");
-    exit(1);
-  }
-  if (logFile == "") {
-    fprintf(stderr, "Requires a logfile.\n");
-    exit(1);
   }
 }
 
@@ -175,13 +135,9 @@ void setupSensors() {
 }
 
 void run() {
-  printID();
   int poll_result;
 
   while(1) {
-    if (running)
-        getTemperature();
-
     poll_result = poll(&poller, 1, 0);
     if (poll_result < 0) {
       handleError("run (poll)", errno);
@@ -191,71 +147,41 @@ void run() {
       modify();
     }
 
-    
-    if (running) {
+    if(running) {
+      getTemperature();
       sleep(period);
     }
   }
-}
-
-void printID() {
-  char* buffer;
-  int size = sprintf(buffer, "ID=%s\n", id);
-  write(1, buffer, size);
-  write(sockfd, buffer, size);
 }
 
 void modify() {
   char string[256];
   int strSize = read(sockfd, string, 256);
   string[strSize] = '\0';
-  
-  int start = 0;
-  int j;
-  for (j = 0; j < strSize; j++) {
-    if (string[j] == '\n') {
-      string[j] = '\0';
 
-      if (parse(string + start)) {
-        write(1, string + start, j - start);
-        //write(sockfd, string + start, j - start);
-        write(1, "\n", 1);
-        //write(sockfd, "\n", 1);
-      }
-
-      start = j + 1;
-
-    }
-  }
-
-}
-
-bool parse(char string[256]) {
-  if (strcmp(string, "SCALE=F") == 0) {
+  if (strcmp(string, "SCALE=F\n") == 0) {
     scale = 'f';
     //fprintf(stderr, "Changing Scale to Farenheit...\n");
   }
-  else if (strcmp(string, "SCALE=C") == 0) {
+  else if (strcmp(string, "SCALE=C\n") == 0) {
     scale = 'c';
     //fprintf(stderr, "Changing Scale to Celsius...\n");
   }
-  else if (strcmp(string, "SCALE=F") == 0) {
+  else if (strcmp(string, "SCALE=F\n") == 0) {
     scale = 'f';
     //fprintf(stderr, "Changing Scale to Farenheit...\n");
   }
-  else if (strcmp(string, "START") == 0) {
+  else if (strcmp(string, "START\n") == 0) {
     running = true;
     //fprintf(stderr, "Starting...\n");
   }
-  else if (strcmp(string, "STOP") == 0) {
+  else if (strcmp(string, "STOP\n") == 0) {
     running = false;
     //fprintf(stderr, "Stopping...\n");
   }
-  else if (strcmp(string, "OFF") == 0) {
-    char buffer[5] = "OFF\n";
-    write(1, buffer, 4);
-    //write(sockfd, buffer, 5);
-    turn_off();
+  else if (strcmp(string, "OFF\n") == 0) {
+    getTemperature();
+    write(1, string, strSize);
     exit(0);
   }
   else {
@@ -263,7 +189,7 @@ bool parse(char string[256]) {
     char checker[8] = "PERIOD=";
     for (i = 0; i < 7; i++) {
       if (string[i] != checker[i]) {
-        return false;
+        return;
       }
     }
 
@@ -271,10 +197,10 @@ bool parse(char string[256]) {
     for (; true; i++) {
       if (isdigit(string[i]))
         number[i-7] = string[i];
-      else if (string[i] == '\0')
+      else if (string[i] == '\n')
         break;
       else
-        return false;
+        return;
     }
 
     number[i-7] = '\0';
@@ -282,7 +208,7 @@ bool parse(char string[256]) {
     //fprintf(stderr, "Changing Period to %d\n", period);
   }
 
-  return true;
+  write(1, string, strSize);
 }
 
 void getTemperature() {
@@ -300,40 +226,25 @@ void getTemperature() {
      temperature = temperature * 1.8 + 32;
   }
 
-
-
-  char buffer[50];
-  int bufferSize = sprintf(buffer, "%.2d:%.2d:%.2d %.1f\n", currTime->tm_hour, currTime->tm_min, currTime->tm_sec, temperature);
-  write(1, buffer, bufferSize);
-  write(sockfd, buffer, bufferSize);
+  fprintf(1, "%.2d:%.2d:%.2d %.1f\n", currTime->tm_hour, currTime->tm_min, currTime->tm_sec, temperature);
+  fprintf(sockfd, "%.2d:%.2d:%.2d %.1f\n", currTime->tm_hour, currTime->tm_min, currTime->tm_sec, temperature);
   //fprintf(stderr, "Temperature gotten..\n");
   return;
 }
 
-void turn_off() {
-  //fprintf(stderr, "Button Pressed\n");
-  time_t rawTime = time(NULL);
-  struct tm * currTime;
-  currTime = localtime(&rawTime);
-
-  char buffer[50];
-  int bufferSize = sprintf(buffer, "%.2d:%.2d:%.2d SHUTDOWN\n\n", currTime->tm_hour, currTime->tm_min, currTime->tm_sec);
-  write(1, buffer, bufferSize);
-  write(sockfd, buffer, bufferSize);
-
-  mraa_aio_close(tempSensor);
-  close(sockfd);
-
-  fprintf(stderr, "1\n");
-
-  exit(0);
-}
-
-
 int main(int argc, char *argv[]) {
+	fprintf(stderr, "hello.");
+
+
   processArguments(argc, argv);
+  
   createSocket();
+
+
   setupPoller();
   setupSensors();
+
+  fprintf(sockfd, "ID: 100110011");
+
   run();
 }
