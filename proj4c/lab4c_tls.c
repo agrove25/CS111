@@ -59,7 +59,7 @@ void handleError(char loc[256], int err) {
   fprintf(stderr, ": ");
   fprintf(stderr, strerror(err));
 
-  exit(1);
+  exit(2);
 }
 
 void processArguments(int argc, char* argv[]) {

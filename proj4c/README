@@ -1,0 +1,49 @@
+NAME: Andrew Grove
+EMAIL: koeswantoandrew@gmail.com
+ID: 304785991
+
+-------------- Description of the Files ---------------------
+
+lab4b_list.c:
+  The source code that will generate the lab4b executable. This
+  creates a program that accepts four arguments:
+
+  --scale=[F/C]
+  --period=seconds
+  --log=logfile
+  
+  This program will utilize the BeagleBone software and sensors
+  to repeatedly, every (period) seconds, read the temperature. If
+  it is given a log argument, it will input that reading into the
+  logfile, otherwise it will redirect it to standard output. This
+  temperature reading will be in Farenheit (default), or if specified
+  in the scale argument, Celsius.
+
+  This program also has an added functionality where it can change
+  its behavior while it is running. It can do one of six things:
+
+    1.  SCALE=F   :: changes readings to farenheit
+    2.  SCALE=C   :: changes readings to celsius
+    3.  PERIOD=n  :: changes period to n seconds
+    4.  STOP      :: pauses the readings
+    5.  START     :: unpauses the readings again (every n seconds)
+    6.  OFF       :: shuts the program off and logs SHUTDOWN
+
+  Additionally, if the button is pressed (if the button is plugged
+  into port GPIO_50), it will shut the program off, and log when
+  it turned off.
+
+Makefile:
+  This file creates the necessary executables if ran in the default 
+  state (make). It also supports four more options: clean (which erases 
+  all extraneous data from the directory), dist (which creates the tar 
+  file that is needed to upload), check (a smoke test to make sure the
+  program can receive input).
+
+check.sh:
+  a simple test to make sure that the logfile function works and
+  that we can input things while the program is running, and the
+  log file will have traces of said input.
+
+README:
+  this file, outlining the files within the tar.gz.
