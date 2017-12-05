@@ -1,3 +1,2 @@
 default:
-	gcc -w -Wall -Wextra -o client client.c
-	gcc -w -Wall -Wextra -o tls_client tls_client.c -lssl -lcrypto 
+	gcc -lmraa -lm -w -Wall -Wextra -o lab4c_tcp lab4c.c 
